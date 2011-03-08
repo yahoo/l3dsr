@@ -1,0 +1,47 @@
+
+Version 1.2 (2010-11-08)
+ * on FreeBSD, also explicitly set the dscp_rewrite.enabled
+   sysctl to zero
+
+Version 1.1 (2010-11-07)
+ * properly strip trailing whitespace (also fixed
+   commentary handling)
+ * print affirmative reassuring comments on successful exit
+ * really make 'ip' mandatory in the yvip.conf files
+ * add an example to yvip.conf.5
+
+Version 1.0 (2010-10-05)
+ * add support for RHEL5 by installing RPMs we depend on
+   via yum in post-activation and explicitly conflicting with what used to
+   be our yinst dependencies
+
+Version 0.6.1 (2010-01-18)
+ * tiny version bump to fix dist_install fubar
+
+Version 0.6 (2010-01-18)
+ * include DSCP bit in verbose output
+ * ensure yvipagent bails out appropriately if an already
+   configured vip is tried to be configured again
+
+Version 0.5 (2009-11-05)
+ * don't touch system config files, as we're run at yinst
+   start time anyway
+ * unconfigure all l3-dsr configs
+
+Version 0.4 (2009-10-30)
+ * install iptables rules into PREROUTING, not INPUT
+
+Version 0.3 (2009-10-27)
+ * more clearly document yvipagent's requirement of
+   exclusive control over vip management
+ * yvipagent shouldn't try to unload kernel modules
+ * ignore invalid ifcfg-file names
+ * only delete firewall rules that are actually installed
+
+Version 0.2 (2009-10-06)
+ * add "check" command
+ * exit successfully explicitly if all's peachy
+ * only process firewall files if they exist
+
+Version 0.1 (2009-09-29)
+ * Initial version

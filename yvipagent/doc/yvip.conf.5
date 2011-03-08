@@ -1,0 +1,61 @@
+.\"	This manual page was originally written by Jan Schaumann
+.\"	<jschauma@yahoo-inc.com> in September 2009.
+.Dd January 20, 2011
+.Dt YVIP 5
+.Os
+.Sh NAME
+.Nm yvip
+.Nd VIP configuration file
+.Sh DESRIPTION
+This manual page describes the configuration file syntax for files used by
+the
+.Ar /usr/local/etc/rc.d/yvip
+system startup script.
+These files are found under
+.Ar /usr/local/etc/yvip/vips
+and are by convention named after the VIP address.
+The contents of the configuration file specify the details of the VIP
+configuration.
+.Pp
+The syntax of these configuration files is as follows:
+.Bl -bullet -compact -offset indent
+.It
+empty lines are ignored
+.It
+anything including and following the '#' character is ignored
+.It
+all other content must be in the format
+.Ar key=value
+.It
+all unknown keys are ignored
+.It
+a key of
+.Ar ip
+indicating the VIP to be configured on this host;
+madatory
+.It
+a key of
+.Ar type
+indicating the type of the VIP;
+mandatory for all configurations;
+currently supported types: "L3-DSR"
+.It
+a key of
+.Ar dscp
+mapping to an integer indicating the Differentiated Services Codepoint;
+mandatory for vips of type "L3-DSR"
+.It
+any other content is a syntax error
+.El
+.Sh EXAMPLES
+The following example configures the IP address 69.147.125.65 using the
+DSCP value 41:
+.Bd -literal
+ip=69.147.125.65
+type=l3-dsr
+dscp=41
+.Ed
+.Pp
+Note that the
+.Ar key=value
+pairs are unquoted.

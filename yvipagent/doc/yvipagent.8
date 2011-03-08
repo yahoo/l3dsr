@@ -1,0 +1,114 @@
+.\"	This manual page was originally written by Jan Schaumann
+.\"	<jschauma@yahoo-inc.com> in September 2009.
+.Dd January 21, 2011
+.Dt YVIPAGENT 8
+.Os
+.Sh NAME
+.Nm yvipagent
+.Nd configure a host for participation in one or more VIPs
+.Sh SYNOPSIS
+.Nm
+.Op Fl hv
+.Op Fl d Ar dir
+.Op Fl f Ar file
+check | start | stop
+.Sh DESRIPTION
+The
+.Nm
+tool configures a host for participation in one or more VIPs.
+It does this by parsing the VIP configuration files found in the directory
+specified via the
+.Fl d
+flag and installing the necessary firewall rules, loopback aliases, kernel
+modules etc.
+.Pp
+.Nm
+is normally run at system startup time (or manually) from
+.Ar /usr/local/etc/rc.d/yvip .
+.Pp
+.Nm
+will assume that it is solely responsible for all interactions of the
+given host in any kind of VIPs.
+That is, having manually configured loopback aliases, for example, is
+likely to lead to undefined behaviour.
+.Sh OPTIONS
+The following options are supported:
+.Bl -tag -width f_file_
+.It Fl d Ar dir
+Specify the directory in which to look for VIP configuration files.
+Conflicts with
+.Fl f .
+.It Fl f Ar file
+Only configure VIPs from the given VIP configuration file.
+Conflicts with
+.Fl d .
+.It Fl h
+Print a usage statement and exit.
+.It Fl v
+Be verbose.  Can be specified multiple times.
+.El
+.Pp
+In addition,
+.Nm
+requires a mandatory argument
+.Ar check ,
+.Ar start
+or
+.Ar stop
+to be given.
+.Sh DETAILS
+The
+.Nm
+tool requires an argument indicating whether it is configuring or
+unconfiguring the host for a VIP.
+.Pp
+If invoked with the argument being
+.Ar check ,
+it will perform the following actions for each of the VIPs:
+.Bl -bullet -compact -offset indent
+.It
+ensure none of the VIPs have conflicting IP-DSCP pairs
+.It
+ensure none of the VIPs have an unsupported type
+.It
+ensure every VIP of type L3-DSR has a DSCP bit defined
+.It
+ensure very VIP uses a valid IP address
+.El
+.Pp
+If invoked with the argument being
+.Ar start ,
+it will perform the following actions for each of the VIPs:
+.Bl -bullet -compact -offset indent
+.It
+ensure VIP-related kernel modules are loaded (ie load if not already
+loaded)
+.It
+ensure needed firewall rules are installed (ie add if not present)
+.It
+ensure the loopback interface is persistently configured for the given vip
+.El
+.Pp
+If invoked with the argument being
+.Ar stop ,
+it will perform the following actions for each of the VIPs:
+.Bl -bullet -compact -offset indent
+.It
+persistently unconfigure the loopback interface for this VIP
+.It
+unload all firewall rules related to L3-DSR
+.El
+.Pp
+Please note that
+.Nm
+does not perform any kind of input validation on the configuration file
+besides syntax checking.
+.Sh SEE ALSO
+.Xr yvip.conf 5
+.Sh HISTORY
+The
+.Nm
+utility was originally written by
+.An Jan Schaumann
+.Aq jschauma@yahoo-inc.com
+in September 2009.

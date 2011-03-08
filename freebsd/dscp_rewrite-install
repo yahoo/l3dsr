@@ -1,0 +1,120 @@
+#!/usr/local/bin/perl -w
+#
+# Copyright (c) 2008,2009,2010,2011 Yahoo! Inc.  All rights reserved.
+#
+# Originally written by John Baldwin in July 2008.
+
+# Redistribution and use of this software in source and binary forms,
+# with or without modification, are permitted provided that the following
+# conditions are met:
+#
+# * Redistributions of source code must retain the above
+#   copyright notice, this list of conditions and the
+#   following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above
+#   copyright notice, this list of conditions and the
+#   following disclaimer in the documentation and/or other
+#   materials provided with the distribution.
+#
+# * Neither the name of Yahoo! Inc. nor the names of its
+#   contributors may be used to endorse or promote products
+#   derived from this software without specific prior
+#   written permission of Yahoo! Inc.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+# IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+# TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+# PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+$PROG = "dscp_rewrite-install";
+if (@ARGV != 2) {
+    error_exit("Usage: $PROG <operation> <srcdir>");
+}
+my $os = `uname`;
+my $osmaj = `uname -r`;
+chomp($os,$osmaj);
+$os = lc($os);
+$osmaj =~ s/[^\d].*//;
+my($op,$srcdir) = @ARGV;
+$MOD = "dscp_rewrite";
+if ($os eq "freebsd") {
+    if ($osmaj < 6) {
+        error_exit("Unsupported FreeBSD Version: $osmaj");
+    }
+    my $KERNEL = `/sbin/sysctl -n kern.bootfile`;
+    chomp($KERNEL);
+    $KERNEL_SOURCE = "/usr/src/sys";
+    $KERNEL_SOURCE_FILE = "$KERNEL_SOURCE/Makefile";
+    $MODF = "$MOD.ko";
+    $MODDIR = '';
+    my $modpath = `/sbin/sysctl -n kern.module_path`;
+    chomp($modpath);
+    for (split(/;/,$modpath)) {
+	if (/\/modules\/?$/) {
+	    $MODDIR = $_;
+	    last;
+	}
+    }
+    if (!-d $MODDIR) {
+	error_exit("Cannot locate modules directory");
+    }
+    $LOAD="/sbin/kldload $MODDIR/$MODF";
+    $STAT="/sbin/kldstat -n $MOD";
+    $UNLOAD="/sbin/kldunload -n $MOD";
+    $MAKEFILE = "-f Makefile";
+} else {
+    error_exit("Unsupported OS: $os");
+}
+if ($op eq "DEACTIVATE") {
+    unlink("$MODDIR/$MODF");
+} elsif ($op eq "START") {
+    system("$STAT");
+    if ($?) {
+	if (!-f $KERNEL_SOURCE_FILE) {
+	    error_exit("Cannot locate kernel source tree");
+	}
+	print "$PROG: Compiling kernel module ($MOD) ...\n";
+	my $WRK=`mktemp -d -q /tmp/$MOD.XXXXXX`;
+	chomp($WRK);
+	if ($?) {
+	    error_exit("Cannot make a compile directory");
+	}
+	system("mkdir -p $MODDIR");
+	!$? || exit(1);
+	system("cp -p $srcdir/Makefile $srcdir/dscp_rewrite.c $WRK");
+	!$? || exit(1);
+	system("(cd $WRK && /usr/bin/make $MAKEFILE -s clean && /usr/bin/make $MAKEFILE -s all)");
+	!$? || exit(1);
+	system("/bin/cp -p $WRK/$MODF $MODDIR");
+	!$? || error_exit("Unable to copy kernel module to $MODDIR");
+	system("/bin/rm -rf $WRK");
+	!$? || error_exit("Unable to delete temporary directory $WRK");
+	print "$PROG: Loading kernel module ...\n";
+	system("$LOAD");
+	!$? || error_exit("Unable to load kernel module");
+    }
+} elsif ($op eq "STOP") {
+    system("$STAT");
+    if (!$?) {
+	print "$PROG: Unloading kernel module ...\n";
+	system("$UNLOAD");
+	if ($?) {
+	    print "$PROG: Unable to unload $MOD kernel module.\n";
+	}
+    }
+}
+
+
+sub error_exit {
+    print "$PROG: $_[0]\n";
+    exit(1);
+}

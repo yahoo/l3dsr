@@ -1,0 +1,5 @@
+The software in this directory comprises a very simple packet filter that
+is able to rewrite the source address of IP packets by using the DSCP/TOS
+field as an index into a configurable sysctl table.
+
+It is licensed under a 3-clause BSD license.

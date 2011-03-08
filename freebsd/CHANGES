@@ -1,0 +1,35 @@
+Version 1.0.9 (2011-02-17)
+ * fix version restriction introduced in 1.0.6 that made
+   this package fail on FreeBSD 6.x
+
+Version 1.0.8 (2010-11-09)
+ * move unload-busy test to a point where we know the module was actually
+   loaded
+
+Version 1.0.7 (2010-11-08)
+ * prevent unloading of the kernel module if any vips are
+   configured
+
+Version 1.0.6 (2010-10-05):
+ * make this package available for FreeBSD7 by making it os
+   version independent and bailing out in the install script if the major
+   version is too low
+
+Version 1.0.5
+ * Bug 3149934
+
+Version 1.0.4
+ * Build in a temporary directory to avoid confusing yinst or
+   leaving stale files.
+
+Version 1.0.3
+ * Guess again at bugzilla component specification
+
+Version 1.0.2
+ * Bugzilla component
+
+Version 1.0.1
+ * Cosmetic packaging tweaks
+
+Version 1.0.0
+ * Initial release

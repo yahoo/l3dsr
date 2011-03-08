@@ -1,0 +1,6 @@
+This is the "yvipagent" tool.  Install it on a host that participates in a
+Layer-3 DSR VIP.  It provides a system startup service and command-line
+tool to configure the host for participation in one or more VIPs according
+to a flat configuration file.
+
+yvipagent is released under a 3-clause BSD license.

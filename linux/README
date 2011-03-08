@@ -1,0 +1,8 @@
+This package supplies an Iptables module that allows rewriting of
+the destination IP address.
+
+This version will only build on RHEL5 (and maybe later).
+
+A sample invocation using the DADDR iptables module:
+# ifconfig eth0:1 10.74.92.26 netmask 255.255.255.255
+# iptables -t mangle -A INPUT -m dscp --dscp 1 -j DADDR --set-daddr=10.74.92.26
