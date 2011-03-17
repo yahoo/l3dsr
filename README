@@ -1,12 +1,12 @@
 Direct Server Return (DSR) load balancing is a common way to distribute
 network traffic using an approach that currently requires the load
 balancer and all hosts behind the Virtual IP (VIP) to be within the same
-Layer 2 network.  This is a severe limitation that hinders scaling VIPs
-beyond a single contiguous subnet.  To overcome this limitation, we
-present a method to perform DSR load balancing across Layer 3 boundaries
-(``L3DSR''), a solution that allows Yahoo! to serve up to ten times as
-many VIPs on a single hardware Load Balancer compared to other Layer 3
-load balancing methods.
+Layer 2 broadcast domain.  This is a severe limitation that hinders
+scaling VIPs beyond a single contiguous subnet.  To overcome this
+limitation, we present a method to perform DSR load balancing across Layer
+3 boundaries (``L3DSR''), a solution that allows Yahoo! to serve up to ten
+times as many VIPs on a single hardware Load Balancer compared to other
+Layer 3 load balancing methods.
 
 In order to overcome Layer 2 limitations, we use the 6-bit bit
 Differentiated Services Code Point (DSCP) field of the IPv4 header used
@@ -22,6 +22,10 @@ L3DSR is currently supported by:
    - M7 and JetCore blades
    - >= 12.2.01p
  - Citrix Netscaler running 8.x, 9.x
+ - Radware Alteon 4408, 4416, 5412
+   - SW versions 27 and above
+ - Radware AppDirector (All platforms)
+   - 2.10 and above, requires the optional BWM license
 
 On the server, L3DSR is currently supported by:
  - FreeBSD >= 6.x
