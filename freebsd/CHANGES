@@ -1,3 +1,7 @@
+Version 1.1.1 (2011-07-12)
+ * wrap inet_aton in a #if block as inet_aton is present in 8.x;
+   patch submitted by ashish@FreeBSD.org
+
 Version 1.0.9 (2011-02-17)
  * fix version restriction introduced in 1.0.6 that made
    this package fail on FreeBSD 6.x

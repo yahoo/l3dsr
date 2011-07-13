@@ -60,6 +60,7 @@ SYSCTL_INT(_net_inet_ip_dscp_rewrite, OID_AUTO, enabled, CTLFLAG_RW,
 
 static struct in_addr rewrite_addresses[64];
 
+#if __FreeBSD_version < 800000
 static int
 inet_aton(const char *cp, struct in_addr *addr)
 {
@@ -105,6 +106,7 @@ inet_aton(const char *cp, struct in_addr *addr)
 	    octets[2] << 8 | octets[3]);
 	return (0);
 }
+#endif
 
 static int
 rewrite_sysctl_handler(SYSCTL_HANDLER_ARGS)
