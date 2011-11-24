@@ -60,9 +60,8 @@ SYSCTL_INT(_net_inet_ip_dscp_rewrite, OID_AUTO, enabled, CTLFLAG_RW,
 
 static struct in_addr rewrite_addresses[64];
 
-#if __FreeBSD_version < 800000
 static int
-inet_aton(const char *cp, struct in_addr *addr)
+my_inet_aton(const char *cp, struct in_addr *addr)
 {
 	u_long octets[4];
 	const char *c;
@@ -106,7 +105,6 @@ inet_aton(const char *cp, struct in_addr *addr)
 	    octets[2] << 8 | octets[3]);
 	return (0);
 }
-#endif
 
 static int
 rewrite_sysctl_handler(SYSCTL_HANDLER_ARGS)
@@ -118,7 +116,7 @@ rewrite_sysctl_handler(SYSCTL_HANDLER_ARGS)
 	error = sysctl_handle_string(oidp, buf, sizeof(buf), req);
 	if (error)
 		return (error);
-	error = inet_aton(buf, &rewrite_addresses[arg2]);
+	error = my_inet_aton(buf, &rewrite_addresses[arg2]);
 	return (error);
 }
 
@@ -274,7 +272,7 @@ dscp_rewrite_modevent(module_t mod, int type, void *arg)
 static moduledata_t dscp_rewrite_mod = {
 	"dscp_rewrite",
 	dscp_rewrite_modevent,
-	0,
+	0
 };
 
 DECLARE_MODULE(dscp_rewrite, dscp_rewrite_mod, SI_SUB_PROTO_IFATTACHDOMAIN,
