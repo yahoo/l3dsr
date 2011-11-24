@@ -105,7 +105,6 @@ my_inet_aton(const char *cp, struct in_addr *addr)
 	    octets[2] << 8 | octets[3]);
 	return (0);
 }
-#endif
 
 static int
 rewrite_sysctl_handler(SYSCTL_HANDLER_ARGS)
