@@ -34,7 +34,7 @@
  */
 
 #include <sys/cdefs.h>
-__RCSID("$Id: dscp_rewrite.c 17 2011-03-07 21:51:09Z jans $");
+__RCSID("$Id: dscp_rewrite.c 22 2011-11-30 21:27:24Z jans $");
 
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -60,9 +60,8 @@ SYSCTL_INT(_net_inet_ip_dscp_rewrite, OID_AUTO, enabled, CTLFLAG_RW,
 
 static struct in_addr rewrite_addresses[64];
 
-#if __FreeBSD_version < 800000
 static int
-inet_aton(const char *cp, struct in_addr *addr)
+dscp_rewrite_inet_aton(const char *cp, struct in_addr *addr)
 {
 	u_long octets[4];
 	const char *c;
@@ -106,7 +105,6 @@ inet_aton(const char *cp, struct in_addr *addr)
 	    octets[2] << 8 | octets[3]);
 	return (0);
 }
-#endif
 
 static int
 rewrite_sysctl_handler(SYSCTL_HANDLER_ARGS)
@@ -118,7 +116,7 @@ rewrite_sysctl_handler(SYSCTL_HANDLER_ARGS)
 	error = sysctl_handle_string(oidp, buf, sizeof(buf), req);
 	if (error)
 		return (error);
-	error = inet_aton(buf, &rewrite_addresses[arg2]);
+	error = dscp_rewrite_inet_aton(buf, &rewrite_addresses[arg2]);
 	return (error);
 }
 
