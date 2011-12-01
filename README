@@ -8,12 +8,12 @@ limitation, we present a method to perform DSR load balancing across Layer
 times as many VIPs on a single hardware Load Balancer compared to other
 Layer 3 load balancing methods.
 
-In order to overcome Layer 2 limitations, we use the 6-bit bit
-Differentiated Services Code Point (DSCP) field of the IPv4 header used
-for packet classification to relay information to the server.  The server
-inspects the header and rewrites the destination address based on the
-value of the DSCP field and according to its own mapping of DSCP values to
-destination addresses.
+In order to overcome Layer 2 limitations, we use the 6-bit Differentiated
+Services Code Point (DSCP) field of the IPv4 header used for packet
+classification to relay information to the server.  The server inspects
+the header and rewrites the destination address based on the value of the
+DSCP field and according to its own mapping of DSCP values to destination
+addresses.
 
 L3DSR is currently supported by:
  - A10 AX3200 >= 2.2.5
