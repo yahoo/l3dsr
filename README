@@ -29,8 +29,12 @@ L3DSR is currently supported by:
 
 On the server, L3DSR is currently supported by:
  - FreeBSD >= 6.x
- - RHEL >= 5.x
+ - RHEL4 >= 4.7 (IPv4 only), RHEL5 >= 5.4 (IPv6 >= 5.9),
+   RHEL6 >= 6.0, and Fedora 17
 
 L3DSR was developed at Yahoo! Inc.  If you have questions or comments,
-please contact Jan Schaumann <jschauma@netmeister.org> or Carl Stanley
-<cstan@yahoo-inc.com>.
+please contact:
+   Jan Schaumann <jschauma@netmeister.org> (overall design),
+   Carl Stanley <cstan@yahoo-inc.com> (LBs),
+   Quentin Barnes <qbarnes@yahoo-inc.com> (iptables-daddr), or
+   Ben Haga <bhaga@yahoo-inc.com> (yvipagent).

@@ -1,7 +1,6 @@
 srcfiles += \
 	kmod/Makefile		\
-	kmod/Makefile.incl	\
+	kmod/files.mk		\
 	kmod/Makefile.kmod	\
-	kmod/Install.sed	\
 	kmod/ipt_DADDR.h	\
 	kmod/ipt_DADDR.c

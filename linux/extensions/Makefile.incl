@@ -1,6 +1,0 @@
-srcfiles += \
-	extensions/README				\
-	extensions/Makefile				\
-	extensions/Makefile.incl			\
-	extensions/ipt_DADDR.h				\
-	extensions/libipt_DADDR.c

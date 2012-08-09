@@ -1,0 +1,17 @@
+#
+# Makefile to be invoked by rpmbuild only.
+#
+
+include mk/macros.mk package.mk
+
+$(call varchklist_call,SUBDIRS RPM_BUILD_ROOT KVERREL KVARIANTS)
+
+
+all install clean::
+	$(foreach dir,$(SUBDIRS),\
+	  $(MAKE) -C '$(dir)' \
+	    $(call mkargs_call,KVERREL KVARIANTS libdir) \
+	    $@$(nl))
+
+
+.PHONY: all install clean

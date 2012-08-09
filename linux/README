@@ -1,8 +1,47 @@
-This package supplies an Iptables module that allows rewriting of
-the destination IP address.
+These packages supply an Iptables plugin and kernel module and that
+allow rewriting of the destination IP address for IPv4 and IPv6.
 
-This version will only build on RHEL5 (and maybe later).
+iptables-daddr.EL   is for RHEL4 (IPv4 only).
+iptables-daddr.el5  is for RHEL5.
+iptables-daddr.el6  is for RHEL6.
+iptables-daddr.fc17 is for Fedora 17.
 
-A sample invocation using the DADDR iptables module:
-# ifconfig eth0:1 10.74.92.26 netmask 255.255.255.255
-# iptables -t mangle -A INPUT -m dscp --dscp 1 -j DADDR --set-daddr=10.74.92.26
+To natively build all the packages for a given OS, change to the
+directory for the OS desired then:
+
+    $ make -f Makefile.native
+
+Packages (RPMs) will be in:
+
+    $ ls -l build-*/RPMS/* build-*-src/SRPMS
+
+
+A practical application of this software is to do L3DSR (Level 3
+Direct Server Return).  See Jan Schaumann's slides for an overview:
+http://www.nanog.org/meetings/nanog51/presentations/Monday/NANOG51.Talk45.nanog51-Schaumann.pdf
+
+
+For example, to use iptables-daddr you have two Load Balancers (LBs)
+with two VIPs (e.g. 72.30.38.140 and 98.139.183.24) and several
+servers behind them.  The LBs must be able to rewrite the DSCP field
+of incoming, forwarded packets (or in some way mark the packets such
+that an iptables match rule on the servers can identify them).
+
+For example, the first VIP will set the DSCP field to 1 for its
+packets going to the servers, where the second VIP will set the
+DSCP field to 2.  This will allow the servers to know what to set
+the destination address to in reply packets they send directly
+to client machines.
+
+On each server, create lookback interfaces corresponding to the VIPs
+and iptables rules to set the return address on the packets:
+# ifconfig lo:1 72.30.38.140 netmask 255.255.255.255
+# ifconfig lo:2 98.139.183.24 netmask 255.255.255.255
+# iptables -t mangle -A INPUT -m dscp --dscp 1 -j DADDR --set-daddr=72.30.38.140
+# iptables -t mangle -A INPUT -m dscp --dscp 2 -j DADDR --set-daddr=98.139.183.24
+
+An example for IPv6:
+sudo ifconfig lo:3 add fc00:1000:0:6::10/128
+sudo ifconfig lo:4 add fc00:1000:0:6::21/128
+# iptables -t mangle -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
+# iptables -t mangle -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21

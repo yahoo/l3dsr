@@ -1,18 +1,8 @@
 /* Shared library add-on to iptables to add DADDR target support. */
 
-/*
- * Copyright (c) 2010 Yahoo! Inc. All rights reserved.
- *
- * This file is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License (GPL), version 2 only.
- * This software s distributed WITHOUT ANY WARRANTY, whether express or
- * implied. See the GNU GPL for more details:
- * (http://www.gnu.org/licenses/gpl.html)
- *
- * Originally written by Quentin Barnes <qbarnes@yahoo-inc.com
- *
+/* (C) 2008 Yahoo! Inc.
+ *    Written by: Quentin Barnes <qbarnes@yahoo-inc.com>
  */
-
 
 #include <stdio.h>
 #include <string.h>
@@ -52,7 +42,7 @@ init(struct ipt_entry_target *t, unsigned int *nfcache)
 }
 
 static void
-parse_daddr(const char *s, struct ipt_daddr_target_info *info)
+parse_daddr(const unsigned char *s, struct ipt_daddr_target_info *info)
 {
 	struct in_addr *ip;
 
@@ -131,19 +121,20 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	print_daddr(daddrinfo->daddr);
 }
 
-static struct iptables_target daddr = {
-	.next		= NULL,
-	.name		= "DADDR",
-	.version	= IPTABLES_VERSION,
-	.size		= IPT_ALIGN(sizeof(struct ipt_daddr_target_info)),
-	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_daddr_target_info)),
-	.help		= &help,
-	.init	 	= &init,
-	.parse		= &parse,
-	.final_check	= &final_check,
-	.print		= &print,
-	.save		= &save,
-	.extra_opts	= opts
+static
+struct iptables_target daddr = {
+	NULL,
+	"DADDR",
+	IPTABLES_VERSION,
+	IPT_ALIGN(sizeof(struct ipt_daddr_target_info)),
+	IPT_ALIGN(sizeof(struct ipt_daddr_target_info)),
+	&help,
+	&init,
+	&parse,
+	&final_check,
+	&print,
+	&save,
+	opts
 };
 
 void constructor(void) __attribute__ ((constructor));

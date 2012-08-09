@@ -1,0 +1,90 @@
+#
+# For building RPMs natively.
+#
+
+include mk/macros.mk package.mk
+
+ifneq ($(shell date '+%Y%m%d'),$(RELEASE))
+  $(warning WARNING: Today's date does not match the release date!)
+endif
+
+
+kmodtool           := ./kmodtool
+uname_r            := $(shell uname -r)
+uname_m            := $(shell uname -m)
+kmt_verrel         := $(shell $(kmodtool) verrel $(uname_r))
+kmt_variant        := $(shell $(kmodtool) variant $(uname_r))
+
+PLATFORMS          ?= fc17.$(uname_m)
+
+KVERREL_fc17        = $(patsubst %.$(uname_m),%,$(kmt_verrel))
+OSDIST_fc17         = .fc17
+DIST_fc17           = .fc17
+URL_fc17            = https://github.com/yahoo/l3dsr
+
+BUILDPATH          ?= $(PWD)
+BUILDRUNCMD         = $(BUILDPATH)/runbuildenv
+MKBUILDMKFILE       = mk/Makefile.build
+BINBUILDMKFILE      = mk/Makefile.bpkg
+
+# Just reuse one of the architectures' chroots for the SRPM builds.
+PKGARCH_src                 = $(uname_m)
+
+BUILDDIR_fc17.src         ?= build-fc17-src
+BUILDDIR_fc17.$(uname_m)  ?= build-fc17-$(uname_m)
+KVARIANTS_fc17.$(uname_m) ?= $(kmt_variant)
+
+CREATEENVCOOKIE     = .createenv-cookie
+PREPENVCOOKIE       = .prepenv-cookie
+
+clean_files     = $(PREPENVCOOKIE)
+clobber_files   = $(clean_files) $(CREATEENVCOOKIE)
+distclean_files = $(clobber_files)
+
+os   = $(word 1,$(subst ., ,$(1)))
+arch = $(word 2,$(subst ., ,$(1)))
+
+do_submks = \
+	$(foreach p,$(PLATFORMS),\
+	  $(MAKE) -f $(1) \
+		PKGOS='$(call os,$p)' \
+		PKGARCH='$(call arch,$p)' \
+		KVERREL='$(KVERREL_$(call os,$p))' \
+		OSDIST='$(OSDIST_$(call os,$p))' \
+		DIST='$(DIST_$(call os,$p))' \
+		URL='$(URL_$(call os,$p))' \
+		KVARIANTS='$(KVARIANTS_$p)' \
+		BUILDPATH='$(BUILDPATH)' \
+		BUILDRUNCMD='$(BUILDRUNCMD)' \
+		BINBUILDDIR='$(BUILDDIR_$p)' \
+		BINBUILDRUNCMD='$(BUILDRUNCMD)' \
+		SRCBUILDDIR='$(BUILDDIR_$(call os,$p).src)' \
+		SRCBUILDRUNCMD='$(BUILDRUNCMD)' \
+		$(2)$(nl)\
+	)
+
+
+all: prep_buildenvs
+	+$(call do_submks,$(BINBUILDMKFILE),$@)
+
+create_buildenvs: $(PREPENVCOOKIE)
+
+prep_buildenvs: $(PREPENVCOOKIE)
+
+$(PREPENVCOOKIE): $(CREATEENVCOOKIE)
+	+$(call do_submks,$(MKBUILDMKFILE),prep_buildenv)
+	@touch -- '$@'
+
+$(CREATEENVCOOKIE):
+	+$(call do_submks,$(MKBUILDMKFILE),create_buildenv)
+	@touch -- '$@'
+
+clean clobber distclean::
+	+$(call do_submks,$(BINBUILDMKFILE),$@)
+	+$(call do_submks,$(MKBUILDMKFILE),$@)
+
+clean clobber distclean::
+	$(call scrub_files_cmd_call,$($@_files))
+
+
+.PHONY: all create_buildenvs prep_buildenvs clean clobber distclean
