@@ -1,3 +1,7 @@
+Version 1.3 (2012-11-05)
+ * Linux: Disable explicit loading of kernel modules via yvipagent.  iptables
+   will load the appropriate modules as required.
+ * Minor documentation updates
 
 Version 1.2 (2010-11-08)
  * on FreeBSD, also explicitly set the dscp_rewrite.enabled

@@ -1,6 +1,6 @@
 .\"	This manual page was originally written by Jan Schaumann
 .\"	<jschauma@yahoo-inc.com> in September 2009.
-.Dd January 21, 2011
+.Dd November 5, 2012
 .Dt YVIPAGENT 8
 .Os
 .Sh NAME
@@ -20,7 +20,8 @@ It does this by parsing the VIP configuration files found in the directory
 specified via the
 .Fl d
 flag and installing the necessary firewall rules, loopback aliases, kernel
-modules etc.
+modules (FreeBSD-only), et cetera.  Linux kernel module loading is handled
+by iptables.
 .Pp
 .Nm
 is normally run at system startup time (or manually) from
@@ -81,8 +82,8 @@ If invoked with the argument being
 it will perform the following actions for each of the VIPs:
 .Bl -bullet -compact -offset indent
 .It
-ensure VIP-related kernel modules are loaded (ie load if not already
-loaded)
+ensure VIP-related kernel modules are loaded (FreeBSD-only, ie load if not 
+already loaded)
 .It
 ensure needed firewall rules are installed (ie add if not present)
 .It
@@ -106,6 +107,12 @@ besides syntax checking.
 .Sh SEE ALSO
 .Xr yvip.conf 5
 .Sh HISTORY
+The
+.Nm
+maintainer is
+.An Ben Haga
+.Aq bhaga@yahoo-inc.com .
+.Pp
 The
 .Nm
 utility was originally written by

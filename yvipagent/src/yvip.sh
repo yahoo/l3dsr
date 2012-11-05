@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# Copyright (c) 2009,2010,2011 Yahoo! Inc.
+# Copyright (c) 2009,2010,2011,2012 Yahoo! Inc.
 #
 # Originally written by Jan Schaumann <jschauma@yahoo-inc.com> in September
 # 2009.

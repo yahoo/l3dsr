@@ -1,6 +1,6 @@
 #! /usr/local/bin/perl -Tw
 #
-# Copyright (c) 2009,2010,2011 Yahoo! Inc.
+# Copyright (c) 2009,2010,2011,2012 Yahoo! Inc.
 #
 # Originally written by Jan Schaumann <jschauma@yahoo-inc.com> in September
 # 2009.
@@ -91,7 +91,7 @@ my %OS_DETAILS = (
 					"firewall_config_stop" => "/sbin/sysctl <rule>",
 				},
 			"linux" => {
-					"kernel_modules" => "ipt_dscp ipt_DADDR ",
+					"kernel_modules" => "",
 					"kernel_module_test" => "/bin/grep -q ^<mod> /proc/modules",
 					"kernel_module_load" => "/sbin/modprobe <mod>",
 					"loopback_start" => "/sbin/ifconfig lo",
