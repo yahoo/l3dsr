@@ -9,15 +9,16 @@ ifneq ($(shell date '+%Y%m%d'),$(RELEASE))
 endif
 
 
+kverrelvararch     := $(shell uname -r)
+karch              := $(shell uname -p)
+
 kmodtool           := ./kmodtool
-uname_r            := $(shell uname -r)
-uname_m            := $(shell uname -m)
-kmt_verrel         := $(shell $(kmodtool) verrel $(uname_r))
-kmt_variant        := $(shell $(kmodtool) variant $(uname_r))
+kmt_verrel         := $(shell $(kmodtool) verrel $(kverrelvararch))
+kmt_variant        := $(shell $(kmodtool) variant $(kverrelvararch))
 
-PLATFORMS          ?= fc17.$(uname_m)
+PLATFORMS          ?= fc17.$(karch)
 
-KVERREL_fc17        = $(patsubst %.$(uname_m),%,$(kmt_verrel))
+KVERREL_fc17        = $(patsubst %.$(karch),%,$(kmt_verrel))
 OSDIST_fc17         = .fc17
 DIST_fc17           = .fc17
 URL_fc17            = https://github.com/yahoo/l3dsr
@@ -28,11 +29,11 @@ MKBUILDMKFILE       = mk/Makefile.build
 BINBUILDMKFILE      = mk/Makefile.bpkg
 
 # Just reuse one of the architectures' chroots for the SRPM builds.
-PKGARCH_src                 = $(uname_m)
+PKGARCH_src                 = $(karch)
 
 BUILDDIR_fc17.src         ?= build-fc17-src
-BUILDDIR_fc17.$(uname_m)  ?= build-fc17-$(uname_m)
-KVARIANTS_fc17.$(uname_m) ?= $(kmt_variant)
+BUILDDIR_fc17.$(karch)    ?= build-fc17-$(karch)
+KVARIANTS_fc17.$(karch)   ?= $(kmt_variant)
 
 CREATEENVCOOKIE     = .createenv-cookie
 PREPENVCOOKIE       = .prepenv-cookie

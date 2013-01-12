@@ -5,7 +5,7 @@
 include mk/macros.mk package.mk
 
 $(call varchklist_call,\
-	KVERREL OSDIST DIST BUILDPATH \
+	KVERREL KVARIANTS OSDIST DIST BUILDPATH \
 	SRCBUILDDIR SRCBUILDRUNCMD)
 
 
@@ -73,8 +73,10 @@ $(ssrpm) : %/SRPMS/$(srpm) : %/SOURCES/$(tarfile) %/SPECS/$(specfile)
 	$(SRCBUILDRUNCMD) \
 	  "cd '$(BUILDPATH)/$(SRCBUILDDIR)' && \
 	    rpmbuild -bs \
+	      --target='$(PKGARCH)' \
 	      --define 'dist $(DIST)' \
 	      --define '_topdir $(BUILDPATH)/$(SRCBUILDDIR)' \
+	      --define 'kvariants $(subst ",\",$(KVARIANTS))' \
 	      SPECS/$(specfile)"
 
 clean clobber distclean::

@@ -76,7 +76,7 @@ ifelse(__OSDIST__,{{.EL}},{{dnl
 
 # hint: this can he overridden with "--define kvariants foo bar" on the
 # rpmbuild command line, e.g. --define 'kvariants "" smp'
-%{!?kvariants: %define kvariants %{?upvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
+%{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
 
 # Use kmodtool to generate individual kmod subpackages directives.
 # Hack in our own preinstall script.

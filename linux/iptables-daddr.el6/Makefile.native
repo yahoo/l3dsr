@@ -9,15 +9,16 @@ ifneq ($(shell date '+%Y%m%d'),$(RELEASE))
 endif
 
 
+kverrelvararch     := $(shell uname -r)
+karch              := $(shell uname -p)
+
 kmodtool           := ./kmodtool
-uname_r            := $(shell uname -r)
-uname_m            := $(shell uname -m)
-kmt_verrel         := $(shell $(kmodtool) verrel $(uname_r))
-kmt_variant        := $(shell $(kmodtool) variant $(uname_r))
+kmt_verrel         := $(shell $(kmodtool) verrel $(kverrelvararch))
+kmt_variant        := $(shell $(kmodtool) variant $(kverrelvararch))
 
-PLATFORMS          ?= rhel6.$(uname_m)
+PLATFORMS          ?= rhel6.$(karch)
 
-KVERREL_rhel6       = $(patsubst %.$(uname_m),%,$(kmt_verrel))
+KVERREL_rhel6       = $(patsubst %.$(karch),%,$(kmt_verrel))
 OSDIST_rhel6        = .el6
 DIST_rhel6          = .el6
 URL_rhel6           = https://github.com/yahoo/l3dsr
@@ -28,11 +29,11 @@ MKBUILDMKFILE       = mk/Makefile.build
 BINBUILDMKFILE      = mk/Makefile.bpkg
 
 # Just reuse one of the architectures' chroots for the SRPM builds.
-PKGARCH_src                 = $(uname_m)
+PKGARCH_src                 = $(karch)
 
 BUILDDIR_rhel6.src         ?= build-rhel6-src
-BUILDDIR_rhel6.$(uname_m)  ?= build-rhel6-$(uname_m)
-KVARIANTS_rhel6.$(uname_m) ?= $(kmt_variant)
+BUILDDIR_rhel6.$(karch)    ?= build-rhel6-$(karch)
+KVARIANTS_rhel6.$(karch)   ?= $(kmt_variant)
 
 CREATEENVCOOKIE     = .createenv-cookie
 PREPENVCOOKIE       = .prepenv-cookie

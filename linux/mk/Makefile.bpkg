@@ -48,7 +48,7 @@ $(SRPM): $(SSRPM)
 
 $(SSRPM) clean clobber distclean::
 	$(MAKE) -f mk/Makefile.spkg $(call mkargs_call,\
-		  KVERREL DIST BUILDPATH \
+		  KVERREL KVARIANTS DIST BUILDPATH \
 		  SRCBUILDDIR SRCBUILDRUNCMD) '$@'
 
 clean clobber distclean::

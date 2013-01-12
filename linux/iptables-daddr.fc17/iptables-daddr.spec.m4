@@ -40,7 +40,9 @@ Source1: kmodtool
 %define prekmodrm if [ "$1" -eq 1 ];then %{kmodrm};fi
 %define preunkmodrm if [ "$1" -eq 0 ];then %{kmodrm};fi
 
-ifelse(__OSDIST__,{{.el5}},{{dnl
+ifelse(__OSDIST__,{{.EL}},{{dnl
+%define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version} 2>/dev/null)
+}},__OSDIST__,{{.el5}},{{dnl
 %define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version} 2>/dev/null)
 }},{{dnl
 %define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version}.%{_target_cpu} 2>/dev/null)
@@ -52,7 +54,18 @@ ifelse(__OSDIST__,{{.el5}},{{dnl
 %define kdumpvar kdump
 %endif
 
-ifelse(__OSDIST__,{{.el5}},{{dnl
+ifelse(__OSDIST__,{{.EL}},{{dnl
+%ifarch i686
+%define paevar hugemem
+%define smpvar smp
+%endif
+%ifarch x86_64
+%define smpvar smp largesmp
+%endif
+%ifarch i686 ia64 x86_64
+%define xenvar xenU
+%endif
+}},__OSDIST__,{{.el5}},{{dnl
 %ifarch i686
 %define paevar PAE
 %endif
@@ -63,11 +76,13 @@ ifelse(__OSDIST__,{{.el5}},{{dnl
 
 # hint: this can he overridden with "--define kvariants foo bar" on the
 # rpmbuild command line, e.g. --define 'kvariants "" smp'
-%{!?kvariants: %define kvariants %{?upvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
+%{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
 
 # Use kmodtool to generate individual kmod subpackages directives.
 # Hack in our own preinstall script.
-ifelse(__OSDIST__,{{.el5}},{{dnl
+ifelse(__OSDIST__,{{.EL}},{{dnl
+%define kmodtemplate rpmtemplate_kmp
+}},__OSDIST__,{{.el5}},{{dnl
 %define kmodtemplate rpmtemplate_kmp
 }},{{dnl
 %define kmodtemplate rpmtemplate

@@ -72,8 +72,8 @@ ifelse(__OSDIST__,{{.EL}},{{dnl
 %endif
 }})dnl
 
-# hint: this can he overridden with "--define kvariant foo bar" on the
-# rpmbuild command line, e.g. --define 'kvariant "" smp'
+# hint: this can he overridden with "--define kvariants foo bar" on the
+# rpmbuild command line, e.g. --define 'kvariants "" smp'
 %{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
 %{!?kvariants1: %define kvariants1 %{?upvar} %{?smpvar}}
 %{!?kvariants2: %define kvariants2 %{?xenvar} %{?kdumpvar} %{?paevar}}
@@ -90,16 +90,16 @@ ifelse(__OSDIST__,{{.EL}},{{dnl
 %define kmod_version %{version}
 %define kmod_release %{release}
 }})dnl
-%{expand:%(%{kmodtool} rpmtemplate_kmp %{kmod_name} %{kverrel} %{kvariants1} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\1\2\n%{preunkmodrm}@g')}
-%{expand:%(%{kmodtool} rpmtemplate_kmp %{kmod_name} %{kverrel} %{kvariants2} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\1\2\n%{preunkmodrm}@g')}
+%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants1} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\1\2\n%{preunkmodrm}@g')}
+%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants2} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\1\2\n%{preunkmodrm}@g')}
 
 %description
 Enables IPv4 destination address rewriting using iptables rules.
 
-The %{name} package provides an iptables user-space
+The "iptables-daddr" package provides an iptables user-space
 plugin "DADDR" target.  The plugin requires installation of a
-"kmod-%{name}" package providing a matching kernel module for
-the running kernel.
+"kmod-iptables-daddr" package providing a matching kernel module
+for the running kernel.
 
 For further information: %{url}
 

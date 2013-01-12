@@ -43,5 +43,5 @@ and iptables rules to set the return address on the packets:
 An example for IPv6:
 sudo ifconfig lo:3 add fc00:1000:0:6::10/128
 sudo ifconfig lo:4 add fc00:1000:0:6::21/128
-# iptables -t mangle -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
-# iptables -t mangle -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21
+# ip6tables -t mangle -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
+# ip6tables -t mangle -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21
