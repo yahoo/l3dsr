@@ -41,7 +41,7 @@ and iptables rules to set the return address on the packets:
 # iptables -t mangle -A INPUT -m dscp --dscp 2 -j DADDR --set-daddr=98.139.183.24
 
 An example for IPv6:
-sudo ifconfig lo:3 add fc00:1000:0:6::10/128
-sudo ifconfig lo:4 add fc00:1000:0:6::21/128
+# ifconfig lo:3 add fc00:1000:0:6::10/128
+# ifconfig lo:4 add fc00:1000:0:6::21/128
 # ip6tables -t mangle -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
 # ip6tables -t mangle -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21
