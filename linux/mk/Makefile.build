@@ -2,40 +2,44 @@
 # Sub-makefile for prepping the native build environment.
 #
 
-include mk/macros.mk package.mk
+include mk/macros.mk
 
 $(call varchklist_call,\
-	PKGOS PKGARCH KVERREL KVARIANTS BUILDRUNCMD BINBUILDDIR)
+	BUILDRUNCMD)
 
 
 rootsh = \
 	$(pound)! /bin/bash\
 	\neval \"\$$@\"
 
-yrootyum   = $(BINBUILDRUNCMD) \
+rootyum   = $(BUILDRUNCMD) \
 	       "rpm -q '$(1)' > /dev/null || \
 		 sudo yum install -y $(2) '$(1)'"
 
-kpkgs = $(if $(findstring "",$(KVARIANTS)),\
-	  kernel-devel-$(KVERREL).$(PKGARCH)) \
-	$(foreach k,$(filter-out "",$(KVARIANTS)),\
-	  kernel-$k-devel-$(KVERREL).$(PKGARCH))
+yumpkgs    = rpm-build iptables-devel kernel-devel
+yumpkgsopt =
 
-yumpkgs    = rpm-build iptables-devel $(kpkgs)
-yumpkgsopt = kabi-whitelists
+ifeq ($(OSMACRO),rhel_version)
+  ifeq ($(OSMACROVER),505)
+    yumpkgs += redhat-rpm-config
+  endif
+  ifeq ($(OSMACROVER),600)
+    yumpkgs += redhat-rpm-config
+    yumpkgsopt += kabi-whitelists
+  endif
+endif
 
 clean_files     = $(BUILDRUNCMD)
-clobber_files   = $(clean_files) $(BINBUILDDIR)
+clobber_files   = $(clean_files)
 distclean_files = $(clobber_files) 
 
 
-all: prep_chroot
+all: create_buildenv prep_buildenv
 
 prep_buildenv: $(BUILDRUNCMD)
-	$(call mkdirs_cmd_call,$(BINBUILDDIR))
-	$(foreach r,$(yumpkgs),$(call yrootyum,$r) || \
+	$(foreach r,$(yumpkgs),$(call rootyum,$r) || \
 		{ echo >&2 "Build requires '$r' rpm."; exit 1; }$(nl))
-	$(foreach r,$(yumpkgsopt),$(call yrootyum,$r) || exit 0$(nl))
+	$(foreach r,$(yumpkgsopt),$(call rootyum,$r) || exit 0$(nl))
 
 create_buildenv:
 

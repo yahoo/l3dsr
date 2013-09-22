@@ -1,25 +1,58 @@
+=== BUILDING ===
+
 These packages supply an Iptables plugin and kernel module and that
 allow rewriting of the destination IP address for IPv4 and IPv6.
 
-iptables-daddr.EL   is for RHEL4 (IPv4 only).
-iptables-daddr.el5  is for RHEL5.
-iptables-daddr.el6  is for RHEL6.
-iptables-daddr.fc17 is for Fedora 17.
+To build the packages (RPMs) for your OS, type:
 
-To natively build all the packages for a given OS, change to the
-directory for the OS desired then:
+    $ make
 
-    $ make -f Makefile.native
-
-Packages (RPMs) will be in:
+RPMs will be in:
 
     $ ls -l build-*/RPMS/* build-*-src/SRPMS
 
 
-A practical application of this software is to do L3DSR (Level 3
-Direct Server Return).  See Jan Schaumann's slides for an overview:
-http://www.nanog.org/meetings/nanog51/presentations/Monday/NANOG51.Talk45.nanog51-Schaumann.pdf
+In this release, RHEL4, RHEL5, RHEL6, and Fedora 17 are directly
+supported.  If the build fails on another OS, you may need to create
+a file in the top level directory called "package-<name>.mk" where
+"<name>" is any string you choose to represent its configuration for
+make macro overrides.  Using the "package-<name>.mk" should help
+avoid the need to change the other files directly.
 
+For RPM-based systems that use yum, the changes are straight-forward.
+
+If your build breaks due to kernel-devel-$(ARCH) not being found,
+your native kmodtool utility may be problematic.  Try the one used
+for Fedora 17 by adding to your "package-<name>.mk" file the line:
+   Kmodtool_native      := $(PWD)/kmodtool.fc17
+
+If you're building on an older system or kernel using iptables 1.2
+or 1.3, you may need to override by specifying the version in your
+"package-<name>.mk" file.
+
+For example, on a RHEL4-like system, add:
+   OSMACRO_native        = rhel_version
+   OSMACROVER_native     = 406
+   Kmodtool_native      := $(PWD)/kmodtool.EL
+   ExtensionsDir_native  = extensions-1.2
+   KmodDir_native        = kmod-ipt
+
+or for a RHEL5-like system, add:
+   OSMACRO_native        = rhel_version
+   OSMACROVER_native     = 505
+   ExtensionsDir_native  = extensions-1.3
+   KmodDir_native        = kmod-xt-older
+
+For systems not using yum or RPM, porting will be more complex.
+If you make changes that can be folded back into the existing
+build system, please send me your patchset for review.
+
+
+=== USING ===
+
+A practical application of this software is to do L3DSR (Level 3
+Direct Server Return).  For an overview, see Jan Schaumann's slides,
+l3dsr/docs/nanog51.pdf.
 
 For example, to use iptables-daddr you have two Load Balancers (LBs)
 with two VIPs (e.g. 72.30.38.140 and 98.139.183.24) and several
@@ -41,7 +74,7 @@ and iptables rules to set the return address on the packets:
 # iptables -t mangle -A INPUT -m dscp --dscp 2 -j DADDR --set-daddr=98.139.183.24
 
 An example for IPv6:
-sudo ifconfig lo:3 add fc00:1000:0:6::10/128
-sudo ifconfig lo:4 add fc00:1000:0:6::21/128
-# iptables -t mangle -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
-# iptables -t mangle -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21
+# ifconfig lo:3 add fc00:1000:0:6::10/128
+# ifconfig lo:4 add fc00:1000:0:6::21/128
+# ip6tables -t mangle -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
+# ip6tables -t mangle -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21

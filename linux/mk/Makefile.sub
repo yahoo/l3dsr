@@ -1,0 +1,146 @@
+#
+# Sub-makefile that controls all the build from source steps for a given RPM.
+#
+
+include mk/macros.mk
+
+$(call varchklist_call,\
+	TARBALL_MKFILE \
+	PACKAGE VERSION RELEASE \
+	SPECFILE TARBALLFILE \
+	$(PACKAGE_SUB_EXTRA_VARS) \
+	PKGNAME PKGARCH \
+	KVARIANTS)
+
+
+tarball_mkvars = \
+	PACKAGE VERSION RELEASE \
+	OSMACRO OSMACROVER \
+	SPECFILE TARBALLFILE \
+	$(PACKAGE_SUB_EXTRA_VARS)
+
+
+srpmfile           = $(PKGNAME)$(DIST).src.rpm
+rpmfile            = $(PKGNAME)$(DIST).$(PKGARCH).rpm
+
+tarball            = $(TARBALLBUILDDIR)/$(TARBALLFILE)
+starball           = $(SRCBUILDDIR)/SOURCES/$(TARBALLFILE)
+scfgfile           = $(SRCBUILDDIR)/SOURCES/$(PACKAGE)-spec.conf
+skmodtool          = $(if $(KMODTOOL),$(SRCBUILDDIR)/SOURCES/kmodtool)
+sspecfile          = $(SRCBUILDDIR)/SPECS/$(SPECFILE)
+ssrpm              = $(SRCBUILDDIR)/SRPMS/$(srpmfile)
+srpm               = $(BINBUILDDIR)/SRPMS/$(srpmfile)
+rpm                = $(BINBUILDDIR)/RPMS/$(PKGARCH)/$(rpmfile)
+
+rpmtmppath        ?= /var/tmp/rpm-$(LOGNAME)
+
+iptables_version_words  = $(subst ., ,$(word 2,$(subst -, ,$(EXTENSIONSDIR))))
+iptables_version_maj    = $(word 1,$(iptables_version_words))
+iptables_version_min    = $(word 2,$(iptables_version_words))
+
+rpmbuild_args      = --define '_topdir $(topdir)' \
+		     --define '_tmppath $(rpmtmppath)' \
+		     $(rpmbuild_extras)
+
+clean_files     =  $(rpm) $(srpm) $(ssrpm) \
+		   $(tarball) $(starball) \
+		   $(scfgfile) $(sspecfile) $(skmodtool)
+clobber_files   = $(BINBUILDDIR) $(SRCBUILDDIR) $(TARBALLBUILDDIR)
+distclean_files = $(clobber_files)
+
+all: rpm
+
+rpm: $(rpm)
+
+srpm: $(ssrpm)
+
+tarball: $(tarball)
+
+scfgfile: $(scfgfile)
+
+$(rpm): topdir = $(PWD)/$(BINBUILDDIR)
+$(rpm): $(srpm)
+	$(call mkdirs_cmd_call,$(BINBUILDDIR))
+	$(call mkrpmdirs_cmd_call,$(BINBUILDDIR))
+	rpm -i --define '_topdir $(topdir)' '$(topdir)/SRPMS/$(<F)'
+	rpmbuild -bb \
+	    $(rpmbuild_args) \
+	    --target='$(PKGARCH)' \
+	    --define 'kvariants $(subst ",\",$(KVARIANTS))' \
+	    $(without_kabichk) \
+	    '$(topdir)/SPECS/$(SPECFILE)'
+
+$(srpm): $(ssrpm)
+	$(call copy_file_cmd_call,$<,$@)
+
+$(ssrpm): topdir = $(PWD)/$(SRCBUILDDIR)
+$(ssrpm): $(starball) $(scfgfile) $(sspecfile) $(skmodtool)
+	$(call mkdirs_cmd_call,$(@D))
+	rpmbuild -bs \
+	    $(rpmbuild_args) \
+	    --define 'kvariants $(subst ",\",$(KVARIANTS))' \
+	    '$(topdir)/SPECS/$(SPECFILE)'
+
+$(starball): $(tarball)
+	$(call copy_file_cmd_call,$<,$@)
+
+$(scfgfile):
+	$(call mkrpmdirs_cmd_call,$(SRCBUILDDIR))
+	rm -f -- '$@'
+ifneq ($(OSMACRO),)
+	echo "%if !0%{?opensuse_bs}" > '$@'
+	echo "%define $(OSMACRO) $(OSMACROVER)" >> '$@'
+	echo "%endif" >> '$@'
+endif
+ifneq ($(DIST),)
+	echo "%define dist $(DIST)" >> '$@'
+else
+	echo "%define dist %{nil}" >> '$@'
+endif
+ifneq ($(URL),)
+	echo "%define url $(URL)" >> '$@'
+endif
+ifneq ($(KMODTOOL),)
+	echo "%define kmodtool_local 1" >> '$@'
+endif
+	echo "%define kmod_name $(PACKAGE)" >> '$@'
+	echo "%define kmod_driver_version $(VERSION)" >> '$@'
+	echo "%define kmod_rpm_release $(RELEASE)" >> '$@'
+ifneq ($(KVERREL),)
+	echo "%define kmod_kernel_version $(KVERREL)" >> '$@'
+endif
+	echo "%define iptables_version_maj $(iptables_version_maj)" >> '$@'
+	echo "%define iptables_version_min $(iptables_version_min)" >> '$@'
+	chmod -w -- '$@'
+
+$(sspecfile): $(SPECFILE)
+	$(call copy_file_cmd_call,$<,$@)
+
+ifneq ($(KMODTOOL),)
+$(skmodtool): $(KMODTOOL)
+	$(call copy_file_cmd_call,$<,$@)
+endif
+
+$(tarball):
+	$(call mkdirs_cmd_call,$(TARBALLBUILDDIR))
+	$(MAKE) \
+	    -I '$(PWD)' \
+	    -f '$(PWD)/$(TARBALL_MKFILE)' \
+	    -C '$(TARBALLBUILDDIR)' \
+	    $(call mkargs_call,$(tarball_mkvars)) \
+	    '$(TARBALLFILE)'
+
+clean clobber distclean::
+	[ ! -d '$(TARBALLBUILDDIR)' ] || \
+	  $(MAKE) \
+	    -I '$(PWD)' \
+	    -f '$(PWD)/$(TARBALL_MKFILE)' \
+	    -C '$(TARBALLBUILDDIR)' \
+	    $(call mkargs_call,$(tarball_mkvars)) \
+	    '$@'
+
+clean clobber distclean::
+	$(call scrub_files_cmd_call,$($@_files))
+
+
+.PHONY: all rpm srpm tarball scfgfile clean clobber distclean

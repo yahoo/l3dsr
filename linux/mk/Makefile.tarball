@@ -1,0 +1,62 @@
+#
+# Sub-makefile that makes the $(TARBALLFILE) file.
+#
+
+include mk/macros.mk
+
+$(call varchklist_call,\
+	RELEASE_BUILD_DATE \
+	TARBALLBUILDDIR TARBALLFILE \
+	KMODDIR EXTENSIONSDIR \
+	PACKAGE VERSION RELEASE)
+
+
+ifneq ($(shell date '+%Y%m%d'),$(RELEASE_BUILD_DATE))
+  $(warning WARNING: Today's date does not match the release date!)
+endif
+
+include $(EXTENSIONSDIR)/files.mk
+include $(KMODDIR)/files.mk
+
+tarsrcfiles       = $(addprefix ../,$(filter-out %/files.mk,$(srcfiles)))
+
+prepsourcescookie = .sources-cookie
+
+
+clean_files     = $(TARBALLFILE) $(prepsourcescookie) 
+clobber_files   = $(clean_files) $(TARBALLBUILDDIR)
+distclean_files = $(clobber_files) 
+
+
+all: tarfile
+
+tarfile: $(TARBALLFILE)
+
+$(TARBALLFILE): $(prepsourcescookie)
+	tar -cjf '$@' '$(PACKAGE)-$(VERSION)'
+
+# Would use, but old tar utilities can't handle --transform.
+# tar -cO \
+#   --transform 's:^\.\./::' \
+#   --transform 's:/\(extensions|kmod\)-[^/]*/:\1:' -- $^ | tar -x
+$(prepsourcescookie): $(tarsrcfiles)
+	rm -rf extensions kmod
+	for src in $^; do\
+	  dest=$${src#*/};\
+	  destrootdir=$${dest%/*};\
+	  destbaserootdir=$${destrootdir%-*};\
+	  destsubpath=$${dest#*/};\
+	  dest='$(PACKAGE)-$(VERSION)'/$$destbaserootdir/$$destsubpath;\
+	  dest=$${dest/extensions-*/extensions/};\
+	  dest=$${dest/kmod-*/kmod/};\
+	  destdir=$${dest%/*};\
+	  [ -d "$$destdir" ] || mkdir -p -- "$$destdir";\
+	  cp -p -- "$$src" "$$dest";\
+	done
+	touch -- '$(prepsourcescookie)'
+
+clean clobber distclean::
+	$(call scrub_files_cmd_call,$($@_files))
+
+
+.PHONY: all tarfile clean clobber distclean
