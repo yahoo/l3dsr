@@ -78,7 +78,7 @@ $(eval \
     KMODDIR_$o   := $$(if $(KmodDir_$o),$(KmodDir_$o),$(KmodDir))$(nl)\
     KVERREL_$o   := $$(or $(Kverrel_$o))$(nl)\
     EXTENSIONSDIR_$o      := $$(if $(ExtensionsDir_$o),$(ExtensionsDir_$o),$(ExtensionsDir))$(nl)\
-    RELEASE_BUILD_DATE_$o := $$(if $(Release_Build_Date_$o),$(Release_Build_Date_$o),$(Release_Build_Date),$(RELEASE_BUILD_DATE),$(Todays_Date))$(nl)\
+    RELEASE_BUILD_DATE_$o := $$(if $(Release_Build_Date_$o),$(Release_Build_Date_$o),$$(if $(Release_Build_Date),$(Release_Build_Date),$$(if $(RELEASE_BUILD_DATE),$(RELEASE_BUILD_DATE),$(Todays_Date))))$(nl)\
   )\
 )
 
