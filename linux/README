@@ -48,9 +48,13 @@ or for a RHEL5-like system, add:
    ExtensionsDir_native  = extensions-1.3
    KmodDir_native        = kmod-xt-older
 
-If you're building for a specific kvariant, you can specify it.  The
-macro is architecture specific, so for example, for Xen i686:
-   KVARIANTS_native.i686 = xen
+If you're building just for some kvariants, you can specify them.
+The macro is architecture specific, so for example, on RHEL4/i686
+building just for largesmp and Xen:
+   KVARIANTS_native.i686   = largesmp xenU
+or only just for Xen on RHEL5/x86_64:
+   KVARIANTS_native.x86_64 = xen
+
 
 For systems not using yum and rpm, porting will be more complex.  If
 you make changes to port to other systems that can be folded back

@@ -136,14 +136,7 @@ Source3: kmodtool
 
 # hint: this can he overridden with "--define kvariants foo bar" on the
 # rpmbuild command line, e.g. --define 'kvariants "" smp'
-%if 0%{?rhel_version} != 406
 %{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
-%else
-# Split the output into two chunks on RHEL4 due to bug in its rpm utils
-# not able to handle all the output from a single expand below.
-%{!?kvariants1: %define kvariants1 %{?upvar} %{?smpvar}}
-%{!?kvariants2: %define kvariants2 %{?xenvar} %{?kdumpvar} %{?paevar}}
-%endif
 
 # Use kmodtool to generate individual kmod subpackages directives.
 %if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
@@ -156,8 +149,7 @@ Source3: kmodtool
 %if 0%{?rhel_version} != 406
 %{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
 %else
-%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants1} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\1\2\n%{preunkmodrm}@g')}
-%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants2} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\1\2\n%{preunkmodrm}@g')}
+%{expand:%(for kvariant in %{kvariants};do %{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} "$kvariant" 2>/dev/null;done | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\1\2\n%{preunkmodrm}@g')}
 %endif
 
 
