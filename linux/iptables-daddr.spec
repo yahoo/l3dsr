@@ -190,12 +190,12 @@ For further information: %{url}
 %prep
 %setup -q -c -T -a 0
 for kvariant in %{kvariants} ; do
-    cp -a %{kmod_name}-%{version} _kmod_build_$kvariant
+    cp -a -- '%{kmod_name}-%{version}' "_kmod_build_$kvariant"
 done
 
 
 %build
-%__make -C "_kmod_build_/extensions" all
+%__make -C '%{kmod_name}-%{version}/extensions' all
 for kvariant in %{kvariants}
 do
 %if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
@@ -212,7 +212,7 @@ done
 
 %install
 %__rm -rf -- '%{buildroot}'
-%makeinstall -C "_kmod_build_/extensions"
+%makeinstall -C '%{kmod_name}-%{version}/extensions'
 for kvariant in %{kvariants}
 do
 %if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
