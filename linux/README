@@ -21,19 +21,24 @@ avoid the need to change the other files directly.
 
 For RPM-based systems that use yum, the changes are straight-forward.
 
-If your build breaks due to kernel-devel-$(ARCH) not being found,
-your native kmodtool utility may be problematic.  Try the one used
-for Fedora 17 by adding to your "package-<name>.mk" file the line:
-   Kmodtool_native      := $(PWD)/kmodtool.fc17
+If your build breaks due to kernel-devel-$(ARCH) dependencies not
+being found or other unexpected errors from the rpmbuild, your
+native kmodtool utility may be problematic.  Try a version known to
+work that's been copied from RHEL5 and RHEL6 (from later releases
+with bug fixes).  Use the one from RHEL5 on RHEL4- and RHEL5-like
+hosts, and the one from RHEL6 on RHEL6-like and later hosts.  In
+your "package-<name>.mk" file for RHEL4, add:
+   Kmodtool_native      := $(PWD)/kmodtool.el5
+or on RHEL6.0-6.3 and Fedora 17 and later add:
+   Kmodtool_native      := $(PWD)/kmodtool.el6
 
 If you're building on an older system or kernel using iptables 1.2
 or 1.3, you may need to override by specifying the version in your
-"package-<name>.mk" file.
-
-For example, on a RHEL4-like system, add:
+"package-<name>.mk" file.  For example, on a RHEL4-like system,
+add:
    OSMACRO_native        = rhel_version
    OSMACROVER_native     = 406
-   Kmodtool_native      := $(PWD)/kmodtool.EL
+   Kmodtool_native      := $(PWD)/kmodtool.el5
    ExtensionsDir_native  = extensions-1.2
    KmodDir_native        = kmod-ipt
 
@@ -43,9 +48,14 @@ or for a RHEL5-like system, add:
    ExtensionsDir_native  = extensions-1.3
    KmodDir_native        = kmod-xt-older
 
-For systems not using yum or RPM, porting will be more complex.
-If you make changes that can be folded back into the existing
-build system, please send me your patchset for review.
+If you're building for a specific kvariant, you can specify it.  The
+macro is architecture specific, so for example, for Xen i686:
+   KVARIANTS_native.i686 = xen
+
+For systems not using yum and rpm, porting will be more complex.  If
+you make changes to port to other systems that can be folded back
+into the existing build system, please send me your patchset for
+review.
 
 
 === USING ===
