@@ -40,6 +40,8 @@ iptables_version_min    = $(word 2,$(iptables_version_words))
 
 rpmbuild_args      = --define '_topdir $(topdir)' \
 		     --define '_tmppath $(rpmtmppath)' \
+		     --target='$(PKGARCH)' \
+		     --define 'kvariants $(subst ",\",$(KVARIANTS))' \
 		     $(rpmbuild_extras)
 
 clean_files     =  $(rpm) $(srpm) $(ssrpm) \
@@ -65,8 +67,6 @@ $(rpm): $(srpm)
 	rpm -i --define '_topdir $(topdir)' '$(topdir)/SRPMS/$(<F)'
 	rpmbuild -bb \
 	    $(rpmbuild_args) \
-	    --target='$(PKGARCH)' \
-	    --define 'kvariants $(subst ",\",$(KVARIANTS))' \
 	    $(without_kabichk) \
 	    '$(topdir)/SPECS/$(SPECFILE)'
 
@@ -78,7 +78,6 @@ $(ssrpm): $(starball) $(scfgfile) $(sspecfile) $(skmodtool)
 	$(call mkdirs_cmd_call,$(@D))
 	rpmbuild -bs \
 	    $(rpmbuild_args) \
-	    --define 'kvariants $(subst ",\",$(KVARIANTS))' \
 	    '$(topdir)/SPECS/$(SPECFILE)'
 
 $(starball): $(tarball)
