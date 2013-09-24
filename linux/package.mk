@@ -68,17 +68,17 @@ $(eval \
 
 $(eval \
   $(foreach o,$(OSES),\
-    DIST_$o      := $$(or $(Dist_$o),$(Dist))$(nl)\
-    RELEASE_$o   := $$(or $(Release_$o),$(Release))$(nl)\
-    VERSION_$o   := $$(or $(Version_$o),$(Version))$(nl)\
-    PACKAGE_$o	 := $$(or $(Package_$o),$(Package))$(nl)\
-    PKGNAME_$o   := $$(or $(Pkgname_$o),$$(PACKAGE_$o)-$$(VERSION_$o)-$$(RELEASE_$o))$(nl)\
-    SPECFILE_$o  := $$(or $(Specfile_$o),$$(PACKAGE_$o).spec)$(nl)\
-    KMODTOOL_$o  := $$(or $(Kmodtool_$o),$(Kmodtool))$(nl)\
-    KMODDIR_$o   := $$(or $(KmodDir_$o),$(KmodDir))$(nl)\
+    DIST_$o      := $$(if $(Dist_$o),$(Dist_$o),$(Dist))$(nl)\
+    RELEASE_$o   := $$(if $(Release_$o),$(Release_$o),$(Release))$(nl)\
+    VERSION_$o   := $$(if $(Version_$o),$(Version_$o),$(Version))$(nl)\
+    PACKAGE_$o	 := $$(if $(Package_$o),$(Package_$o),$(Package))$(nl)\
+    PKGNAME_$o   := $$(if $(Pkgname_$o),$(Pkgname_$o),$$(PACKAGE_$o)-$$(VERSION_$o)-$$(RELEASE_$o))$(nl)\
+    SPECFILE_$o  := $$(if $(Specfile_$o),$(Specfile_$o),$$(PACKAGE_$o).spec)$(nl)\
+    KMODTOOL_$o  := $$(if $(Kmodtool_$o),$(Kmodtool_$o),$(Kmodtool))$(nl)\
+    KMODDIR_$o   := $$(if $(KmodDir_$o),$(KmodDir_$o),$(KmodDir))$(nl)\
     KVERREL_$o   := $$(or $(Kverrel_$o))$(nl)\
-    EXTENSIONSDIR_$o      := $$(or $(ExtensionsDir_$o),$(ExtensionsDir))$(nl)\
-    RELEASE_BUILD_DATE_$o := $$(or $(Release_Build_Date_$o),$(Release_Build_Date),$(RELEASE_BUILD_DATE),$(Todays_Date))$(nl)\
+    EXTENSIONSDIR_$o      := $$(if $(ExtensionsDir_$o),$(ExtensionsDir_$o),$(ExtensionsDir))$(nl)\
+    RELEASE_BUILD_DATE_$o := $$(if $(Release_Build_Date_$o),$(Release_Build_Date_$o),$(Release_Build_Date),$(RELEASE_BUILD_DATE),$(Todays_Date))$(nl)\
   )\
 )
 
