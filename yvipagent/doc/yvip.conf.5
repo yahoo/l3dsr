@@ -1,6 +1,6 @@
 .\"	This manual page was originally written by Jan Schaumann
 .\"	<jschauma@yahoo-inc.com> in September 2009.
-.Dd November 5, 2012
+.Dd September 26, 2013
 .Dt YVIP 5
 .Os
 .Sh NAME
@@ -9,13 +9,15 @@
 .Sh DESRIPTION
 This manual page describes the configuration file syntax for files used by
 the
-.Ar /usr/local/etc/rc.d/yvip
+.Pa /usr/local/etc/rc.d/yvip
 system startup script.
 These files are found under
-.Ar /usr/local/etc/yvip/vips
-and are by convention named after the VIP address.
-The contents of the configuration file specify the details of the VIP
-configuration.
+.Pa /usr/local/etc/yvip/vips
+and may contain any number of VIP configurations.
+By convention in version 3.0 and above, the
+.Pa yvipagent
+package installs all VIP configuration into
+.Pa /usr/local/etc/yvip/vips/config .
 .Pp
 The syntax of these configuration files is as follows:
 .Bl -bullet -compact -offset indent
@@ -25,39 +27,24 @@ empty lines are ignored
 anything including and following the '#' character is ignored
 .It
 all other content must be in the format
-.Ar key=value
+.Dv ip[=dscp]
 .It
-all unknown keys are ignored
-.It
-a key of
-.Ar ip
-indicating the VIP to be configured on this host;
-madatory
-.It
-a key of
-.Ar type
-indicating the type of the VIP;
-mandatory for all configurations;
-currently supported types: "L3-DSR"
-.It
-a key of
-.Ar dscp
-mapping to an integer indicating the Differentiated Services Codepoint;
-mandatory for vips of type "L3-DSR"
-.It
-any other content is a syntax error
+any other content is a syntax error 
 .El
 .Sh EXAMPLES
-The following example configures the IP address 69.147.125.65 using the
-DSCP value 41:
+.Pp
+The following example configures a traditional DSR VIP on the address
+66.163.166.28, the IP address 69.147.125.65 for participation in an L3 DSR
+VIP using the DSCP value 41, as well as the IP address 69.147.125.66 for
+participation in an L3 DSR VIP using the DSCP value 42:
 .Bd -literal
-ip=69.147.125.65
-type=l3-dsr
-dscp=41
+66.163.166.28
+69.147.125.65=41
+69.147.125.66=42
 .Ed
 .Pp
 Note that the
-.Ar key=value
+.Dv key=value
 pairs are unquoted.
 .Sh HISTORY
 The

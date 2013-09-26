@@ -1,3 +1,10 @@
+Version 4.5 (2013-09-26)
+ * Bump version
+ * Add IPv6 VIP configuration support for Linux
+ * Clean up code
+ * General bug fixes in configuration code
+ * Updated documentation
+
 Version 1.3 (2012-11-05)
  * Linux: Disable explicit loading of kernel modules via yvipagent.  iptables
    will load the appropriate modules as required.

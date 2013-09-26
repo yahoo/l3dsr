@@ -1,11 +1,11 @@
 .\"	This manual page was originally written by Jan Schaumann
 .\"	<jschauma@yahoo-inc.com> in September 2009.
-.Dd November 5, 2012
+.Dd September 26, 2013
 .Dt YVIPAGENT 8
 .Os
 .Sh NAME
 .Nm yvipagent
-.Nd configure a host for participation in one or more VIPs
+.Nd configure a host for participation in one or more DSR VIPs
 .Sh SYNOPSIS
 .Nm
 .Op Fl hv
@@ -15,17 +15,15 @@ check | start | stop
 .Sh DESRIPTION
 The
 .Nm
-tool configures a host for participation in one or more VIPs.
+tool configures a host for participation in one or more IPv4 or IPv6 DSR VIPs.
 It does this by parsing the VIP configuration files found in the directory
 specified via the
 .Fl d
-flag and installing the necessary firewall rules, loopback aliases, kernel
-modules (FreeBSD-only), et cetera.  Linux kernel module loading is handled
-by iptables.
+flag and installing the necessary firewall rules, loopback aliases, etc.
 .Pp
 .Nm
 is normally run at system startup time (or manually) from
-.Ar /usr/local/etc/rc.d/yvip .
+.Pa /usr/local/etc/rc.d/yvip .
 .Pp
 .Nm
 will assume that it is solely responsible for all interactions of the
@@ -68,11 +66,11 @@ If invoked with the argument being
 it will perform the following actions for each of the VIPs:
 .Bl -bullet -compact -offset indent
 .It
-ensure none of the VIPs have conflicting IP-DSCP pairs
+ensure none of the VIPs of type L3 DSR have conflicting IP-DSCP pairs
 .It
 ensure none of the VIPs have an unsupported type
 .It
-ensure every VIP of type L3-DSR has a DSCP bit defined
+ensure every VIP of type L3 DSR has a DSCP bit defined
 .It
 ensure very VIP uses a valid IP address
 .El
@@ -82,10 +80,8 @@ If invoked with the argument being
 it will perform the following actions for each of the VIPs:
 .Bl -bullet -compact -offset indent
 .It
-ensure VIP-related kernel modules are loaded (FreeBSD-only, ie load if not 
-already loaded)
-.It
-ensure needed firewall rules are installed (ie add if not present)
+ensure needed firewall rules are installed (i.e. add if necessary and not
+present)
 .It
 ensure the loopback interface is persistently configured for the given vip
 .El
@@ -97,13 +93,14 @@ it will perform the following actions for each of the VIPs:
 .It
 persistently unconfigure the loopback interface for this VIP
 .It
-unload all firewall rules related to L3-DSR
+unload all firewall rules related to L3 DSR
 .El
 .Pp
 Please note that
 .Nm
 does not perform any kind of input validation on the configuration file
 besides syntax checking.
+Empty files will be skipped (silently).
 .Sh SEE ALSO
 .Xr yvip.conf 5
 .Sh HISTORY
