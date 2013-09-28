@@ -67,6 +67,10 @@ BuildRequires: /bin/sed
 Requires: module-init-tools >= 3.1-0.pre5.3.10
 %endif
 
+%if 0%{?rhel_version} == 505
+BuildRequires: redhat-rpm-config
+%endif
+
 %if 0%{?rhel_version} == 600
 # Only needed if building RHEL6 kvariants, skip for now.
 #BuildRequires: redhat-rpm-config >= 9.0.3-40
