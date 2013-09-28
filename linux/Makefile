@@ -5,30 +5,14 @@
 include mk/macros.mk package.mk
 
 
-OSMACRO_rhel4       = rhel_version
-OSMACROVER_rhel4    = 406
-OSDIST_rhel4        = .EL
-
-OSMACRO_rhel5       = rhel_version
-OSMACROVER_rhel5    = 505
-OSDIST_rhel5        = .el5
-
-OSMACRO_rhel6       = rhel_version
-OSMACROVER_rhel6    = 600
-OSDIST_rhel6        = .el6
-
-OSMACRO_fc17        = fedora
-OSMACROVER_fc17     = 17
-OSDIST_fc17         = .fc17
-
 BUILDROOT          ?= $(PWD)
 BUILDRUNCMD         = $(BUILDROOT)/runbuildenv
 
 $(eval \
   $(foreach o,$(OSES),\
     TARBALLFILE_$o     ?= $(PACKAGE_$o)-$(VERSION_$o).tar.bz2$(nl)\
-    TARBALLBUILDDIR_$o ?= build-$o-tarball$(nl)\
-    SRCBUILDDIR_$o     ?= build-$o-src$(nl)\
+    TARBALLBUILDDIR_$o ?= build-tarball$(nl)\
+    SRCBUILDDIR_$o     ?= build-src$(nl)\
     $(foreach a,$(ARCHES),\
       BINBUILDDIR_$o.$a ?= build-$o-$a$(nl)))\
 )
@@ -41,7 +25,6 @@ MAKE_vars =			\
 MAKE_vars_os =			\
 	OSMACRO			\
 	OSMACROVER		\
-	OSDIST			\
 	TARBALLFILE		\
 	TARBALLBUILDDIR		\
 	SRCBUILDDIR		\
@@ -57,7 +40,7 @@ MAKE_vars_osarch =		\
 createenv_cookie = .createenv-cookie
 prepenv_cookie   = .prepenv-cookie
 
-clean_files     = $(prepenv_cookie)
+clean_files     = $(prepenv_cookie) $(NATIVEPKGFILE)
 clobber_files   = $(clean_files) $(createenv_cookie)
 distclean_files = $(clobber_files)
 
@@ -76,7 +59,7 @@ mkmkargs_call = \
 
 envbuild_mkvars = \
 	PKGARCH \
-	OSMACRO OSMACROVER OSDIST \
+	OSMACRO OSMACROVER \
 	PACKAGE_ENVBUILD_EXTRA_VARS \
 	$(PACKAGE_ENVBUILD_EXTRA_VARS) \
 	BUILDRUNCMD
@@ -110,7 +93,7 @@ do_submks = \
 		  $(1))$(nl)\
 	)
 
-all tarballs srpms rpms: $(prepenv_cookie)
+all tarball srpms rpms: $(prepenv_cookie)
 	+$(call do_submks,$(patsubst %s,%,$@))
 
 create_buildenvs: $(createenv_cookie)
@@ -133,4 +116,4 @@ clean clobber distclean::
 	$(call scrub_files_cmd_call,$($@_files))
 
 
-.PHONY: all tarballs rpms srpms create_buildenvs prep_buildenvs clean clobber distclean
+.PHONY: all tarball rpms srpms create_buildenvs prep_buildenvs clean clobber distclean

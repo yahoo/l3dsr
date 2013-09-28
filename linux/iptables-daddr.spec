@@ -1,21 +1,48 @@
-Source1: iptables-daddr-spec.conf
-%{expand:%([ ! -r %{SOURCE1} ] || cat '%{SOURCE1}')}
-%{expand:%([ -r %{SOURCE1} ] || echo 'NoSource: 1')}
-
 %if 0%{!?kmod_name:1}
-%define kmod_name iptables-daddr
+  %define kmod_name iptables-daddr
 %endif
 %if 0%{!?kmod_driver_version:1}
-%define kmod_driver_version 0.6.2
+  %define kmod_driver_version 0.6.2
 %endif
 %if 0%{!?kmod_rpm_release:1}
-%define kmod_rpm_release uncontrolled
+  %define kmod_rpm_release uncontrolled
 %endif
+
 %if 0%{!?iptables_version_maj:1}
-%define iptables_version_maj 1
+  %define iptables_version_maj 1
 %endif
 %if 0%{!?iptables_version_min:1}
-%define iptables_version_min 4
+    %define iptables_version_min 4
+  %if 0%{?rhel_version} == 406
+    %define iptables_version_min 2
+  %endif
+  %if 0%{?rhel_version} == 505
+    %define iptables_version_min 3
+  %endif
+%endif
+
+%define extensionsdir extensions-%{iptables_version_maj}.%{iptables_version_min}
+
+%if 0%{!?kmoddir:1}
+  %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 2
+    %define kmoddir kmod-ipt
+  %endif
+  %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 3
+    %define kmoddir kmod-xt-older
+  %endif
+  %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 4
+    %define kmoddir kmod-xt
+  %endif
+%endif
+
+%if 0%{!?kmodtool:1}
+  %define kmodtool /usr/lib/rpm/redhat/kmodtool
+  %if 0%{?rhel_version} == 406
+    %define kmodtool sh %{_sourcedir}/kmodtool.el5
+  %endif
+  %if 0%{?rhel_version} >= 600
+    %define kmodtool sh %{_sourcedir}/kmodtool.el6
+  %endif
 %endif
 
 %if %{iptables_version_maj} == 1 && %{iptables_version_min} <= 3
@@ -75,14 +102,9 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 %define fullpkgname %{name}-%{rpmversion}
 
 Source0: %{name}-%{version}.tar.bz2
-%if 0%{?kmodtool_local}
-Source3: kmodtool
-%endif
 
-%if 0%{?kmodtool_local}
-%define kmodtool sh %{SOURCE3}
-%else
-%define kmodtool sh /usr/lib/rpm/redhat/kmodtool
+%if 0%{?kmodtool_list:1}
+%{expand:%(i=1000;for f in %{kmodtool_list};do echo "Source$i: $f";let i=i+1;done)}
 %endif
 
 # Create a preinstall and preuninstall scripts as a macro for processing
@@ -98,12 +120,12 @@ Source3: kmodtool
 %define preunkmodrm if [ "$1" -eq 0 ];then %{kmodrm};fi
 
 %if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
-  %define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version} 2>/dev/null)
+  %{expand: %%define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version} 2>/dev/null)}
 %else
   %if 0%{?kmod_kernel_version:1}
-    %define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version}.%{_target_cpu} 2>/dev/null)
+    %{expand: %%define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version}.%{_target_cpu} 2>/dev/null)}
   %else
-    %define kverrel %(%{kmodtool} verrel 2>/dev/null)
+    %{expand: %%define kverrel %(%{kmodtool} verrel 2>/dev/null)}
   %endif
 %endif
 
@@ -115,22 +137,22 @@ Source3: kmodtool
 
 %if 0%{?rhel_version} == 406
   %ifarch i686
-  %define paevar hugemem
-  %define smpvar smp
+    %define paevar hugemem
+    %define smpvar smp
   %endif
   %ifarch x86_64
-  %define smpvar smp largesmp
+    %define smpvar smp largesmp
   %endif
   %ifarch i686 ia64 x86_64
-  %define xenvar xenU
+    %define xenvar xenU
   %endif
 %endif
 %if 0%{?rhel_version} == 505
   %ifarch i686
-  %define paevar PAE
+    %define paevar PAE
   %endif
   %ifarch i686 ia64 x86_64
-  %define xenvar xen
+    %define xenvar xen
   %endif
 %endif
 
@@ -146,12 +168,15 @@ Source3: kmodtool
   %define kmod_version %{version}
   %define kmod_release %{release}
 %endif
-%if 0%{?rhel_version} != 406
-%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
-%else
-%{expand:%(for kvariant in %{kvariants};do %{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} "$kvariant" 2>/dev/null;done | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\1\2\n%{preunkmodrm}@g')}
-%endif
 
+# Too many kvariants overflow the rpm's 8K expand buffer.  Break it down
+# into two lists run separately, enough for now.
+%define ret123() %{?1:%1} %{?2:%2} %{?3:%3}
+%define ret456() %{?4:%4} %{?5:%5} %{?6:%6}
+%{expand: %%define kvariants1 %%ret123 %{kvariants}}
+%{expand: %%define kvariants2 %%ret456 %{kvariants}}
+%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants1} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
+%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants2} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
 
 %description
 %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 2
@@ -187,7 +212,7 @@ done
 
 
 %build
-%__make -C '%{kmod_name}-%{version}/extensions' all
+%__make -C '%{kmod_name}-%{version}/%{extensionsdir}' all
 for kvariant in %{kvariants}
 do
 %if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
@@ -197,14 +222,14 @@ do
 %endif
     %__make \
 	-C "$ksrc" \
-	M="$PWD/_kmod_build_${kvariant}/kmod" \
+	M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
         MODVERSION='%{kmod_driver_version}'
 done
 
 
 %install
 %__rm -rf -- '%{buildroot}'
-%makeinstall -C '%{kmod_name}-%{version}/extensions'
+%makeinstall -C '%{kmod_name}-%{version}/%{extensionsdir}'
 for kvariant in %{kvariants}
 do
 %if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
@@ -215,11 +240,11 @@ do
     kodir="%{buildroot}/lib/modules/%{kverrel}${kvariant}/extra/%{kmod_name}"
     %__make \
 	-C "$ksrc" \
-	M="$PWD/_kmod_build_${kvariant}/kmod" \
+	M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
         MODVERSION='%{kmod_driver_version}'
 	# Need to make sure execute bits are set due to case #00603038.
 	install -m 755 -D \
-            "_kmod_build_${kvariant}/kmod/%{pkgko}.ko" \
+            "_kmod_build_${kvariant}/%{kmoddir}/%{pkgko}.ko" \
             "$kodir/%{pkgko}.ko"
 done
 

@@ -9,57 +9,70 @@ To build the packages (RPMs) for your OS, type:
 
 RPMs will be in:
 
-    $ ls -l build-*/RPMS/* build-*-src/SRPMS
+    $ ls -l build-*/RPMS/* build-src/SRPMS
 
 
 In this release, RHEL4, RHEL5, RHEL6, and Fedora 17 are directly
-supported.  If the build fails on another OS, you may need to create
-a file in the top level directory called "package-<name>.mk" where
-"<name>" is any string you choose to represent its configuration for
-make macro overrides.  Using the "package-<name>.mk" should help
-avoid the need to change the other files directly.
+supported.  When typing "make" on one of these systems, the build
+environment should just (hopefully) do the right thing for you.
+Even if on different system, but closely related, it should still
+work for you.  You may want to read further though if you need to
+tune or alter the build environment or if you're on a different
+build system than one of the supported and tested ones and your
+build breaks.
 
-For RPM-based systems that use yum, the changes are straight-forward.
+When building natively (the binary RPMs are built in the host
+environment), the script "config-native" will be invoked to create
+a "config-native.mk" file for you with its best guess at how to
+configure the build environment for your system.
 
-If your build breaks due to kernel-devel-$(ARCH) dependencies not
-being found or other unexpected errors from the rpmbuild, your
-native kmodtool utility may be problematic.  Try a version known to
-work that's been copied from RHEL5 and RHEL6 (from later releases
-with bug fixes).  Use the one from RHEL5 on RHEL4- and RHEL5-like
-hosts, and the one from RHEL6 on RHEL6-like and later hosts.  In
-your "package-<name>.mk" file for RHEL4, add:
-   Kmodtool_native      := $(PWD)/kmodtool.el5
-or on RHEL6.0-6.3 and Fedora 17 and later add:
-   Kmodtool_native      := $(PWD)/kmodtool.el6
+The script firest determines what operating system to build for
+by setting the PLATFORMS, OSMACRO_* and OSMACROVER_* macros.  The
+values of these macros correspond to the same settings used by the
+OpenSUSE Build Service.  See:
+http://en.opensuse.org/openSUSE:Build_Service_cross_distribution_howto.
 
-If you're building on an older system or kernel using iptables 1.2
-or 1.3, you may need to override by specifying the version in your
-"package-<name>.mk" file.  For example, on a RHEL4-like system,
-add:
-   OSMACRO_native        = rhel_version
-   OSMACROVER_native     = 406
-   Kmodtool_native      := $(PWD)/kmodtool.el5
-   ExtensionsDir_native  = extensions-1.2
-   KmodDir_native        = kmod-ipt
+You'll see the values of these macros passed to rpmbuild and are
+used by the "iptables-daddr.spec" spec file to control which sources
+are selected to build based on which versions of iptables and kernel
+are in use by the selected OS.
 
-or for a RHEL5-like system, add:
-   OSMACRO_native        = rhel_version
-   OSMACROVER_native     = 505
-   ExtensionsDir_native  = extensions-1.3
-   KmodDir_native        = kmod-xt-older
+The script also examines the currently installed kernel devel
+packages for the kernel variants (kvariants) to build by setting the
+KVARIANTS_* macro.  If you want to change which kernel it looks for,
+use the -r option.  If you want to limit which kvariants it looks
+for, use the -k option.  For example:
+   $ uname -r
+   2.6.9-101.EL
+   $ rpm -qa | grep kernel | grep devel
+   kernel-largesmp-devel-2.6.9-100.EL
+   kernel-devel-2.6.9-101.EL
+   kernel-smp-devel-2.6.9-101.EL
+   kernel-xenU-devel-2.6.9-101.EL
 
-If you're building just for some kvariants, you can specify them.
-The macro is architecture specific, so for example, on RHEL4/i686
-building just for largesmp and Xen:
-   KVARIANTS_native.i686   = largesmp xenU
-or only just for Xen on RHEL5/x86_64:
-   KVARIANTS_native.x86_64 = xen
+By default using "uname -r", config-native would select the
+kvariants for 2.6.9-101.EL which are '"" smp xenU".
 
+If invoking "./config-native -r 2.6.9-100.EL", it would only select
+kvariants for 'largesmp' since kernel-largesmp-devel is only
+installed for that kernel (and would also add an additional macro
+Kverrel_* for selecting that kernel to build for).
 
-For systems not using yum and rpm, porting will be more complex.  If
-you make changes to port to other systems that can be folded back
-into the existing build system, please send me your patchset for
-review.
+If invoking "./config-native -k '"" xenU'", it would only select the
+kvariants for '"" xenU' ignoring smp.
+
+You can control the arguments to config-native when calling "make"
+by setting the CONFIG_ARGS variable.  For example:
+   $ make CONFIG_ARGS="-r 2.6.9-101.EL -k '\"\" xenU'
+
+If you change "config-native" to support a system other than the
+ones listed above, please send me your patches.
+
+For systems not using yum and rpm, porting will be more complex,
+primarily changing the "mk/Makefile.build" and "mk/Makefile.sub"
+files.  If you make changes to port to other systems that can be
+folded back into the existing build system, please send me your
+patchset for review.
 
 
 === USING ===

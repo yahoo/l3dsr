@@ -1,7 +1,7 @@
 # When making "install" target, libdir must be set by rpmbuild.
 
 CFLAGS   = -O2 -g -Wall -Wunused -fPIC
-INCPATH  = ../kmod
+INCPATH  = ../kmod-xt
 CPPFLAGS = $(addprefix -I,$(INCPATH))
 LINK.so  = $(LINK.o) -shared
 

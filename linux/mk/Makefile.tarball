@@ -5,26 +5,25 @@
 include mk/macros.mk
 
 $(call varchklist_call,\
-	RELEASE_BUILD_DATE \
-	TARBALLBUILDDIR TARBALLFILE \
-	KMODDIR EXTENSIONSDIR \
-	PACKAGE VERSION RELEASE)
+	SUBDIRS KMODTOOL_LIST TARBALLFILE \
+	PACKAGE VERSION RELEASE_BUILD_DATE)
 
 
 ifneq ($(shell date '+%Y%m%d'),$(RELEASE_BUILD_DATE))
   $(warning WARNING: Today's date does not match the release date!)
 endif
 
-include $(EXTENSIONSDIR)/files.mk
-include $(KMODDIR)/files.mk
+include $(addsuffix /files.mk,$(SUBDIRS))
 
-tarsrcfiles       = $(addprefix ../,$(filter-out %/files.mk,$(srcfiles)))
+tardestdir	= $(PACKAGE)-$(VERSION)
 
 prepsourcescookie = .sources-cookie
 
+tarsrcfiles     = $(filter-out %/files.mk,$(srcfiles)) $(KMODTOOL_LIST)
+tardestfiles    = $(addprefix $(tardestdir)/,$(tarsrcfiles))
 
-clean_files     = $(TARBALLFILE) $(prepsourcescookie) 
-clobber_files   = $(clean_files) $(TARBALLBUILDDIR)
+clean_files     = $(TARBALLFILE) $(prepsourcescookie)
+clobber_files   = $(clean_files)
 distclean_files = $(clobber_files) 
 
 
@@ -32,27 +31,14 @@ all: tarfile
 
 tarfile: $(TARBALLFILE)
 
+# Would use tar --transform, but older tar utils can't handle it.
 $(TARBALLFILE): $(prepsourcescookie)
-	tar -cjf '$@' '$(PACKAGE)-$(VERSION)'
+	tar -cjf '$@' '$(tardestdir)'
 
-# Would use, but old tar utilities can't handle --transform.
-# tar -cO \
-#   --transform 's:^\.\./::' \
-#   --transform 's:/\(extensions|kmod\)-[^/]*/:\1:' -- $^ | tar -x
-$(prepsourcescookie): $(tarsrcfiles)
-	rm -rf extensions kmod
-	for src in $^; do\
-	  dest=$${src#*/};\
-	  destrootdir=$${dest%/*};\
-	  destbaserootdir=$${destrootdir%-*};\
-	  destsubpath=$${dest#*/};\
-	  dest='$(PACKAGE)-$(VERSION)'/$$destbaserootdir/$$destsubpath;\
-	  dest=$${dest/extensions-*/extensions/};\
-	  dest=$${dest/kmod-*/kmod/};\
-	  destdir=$${dest%/*};\
-	  [ -d "$$destdir" ] || mkdir -p -- "$$destdir";\
-	  cp -p -- "$$src" "$$dest";\
-	done
+$(prepsourcescookie): $(addprefix ../,$(tarsrcfiles))
+	$(call scrub_files_cmd_call,$(tardestdir))
+	$(call mkdirs_cmd_call,$(tardestdir))
+	tar -c -C .. $(tarsrcfiles) | tar -x -C '$(tardestdir)'
 	touch -- '$(prepsourcescookie)'
 
 clean clobber distclean::

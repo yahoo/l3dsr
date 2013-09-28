@@ -9,8 +9,7 @@ $(call varchklist_call,\
 	PACKAGE VERSION RELEASE \
 	SPECFILE TARBALLFILE \
 	$(PACKAGE_SUB_EXTRA_VARS) \
-	PKGNAME PKGARCH \
-	KVARIANTS)
+	PKGNAME PKGARCH)
 
 
 tarball_mkvars = \
@@ -20,13 +19,12 @@ tarball_mkvars = \
 	$(PACKAGE_SUB_EXTRA_VARS)
 
 
-srpmfile           = $(PKGNAME)$(DIST).src.rpm
+srpmfile           = $(PKGNAME).src.rpm
 rpmfile            = $(PKGNAME)$(DIST).$(PKGARCH).rpm
 
 tarball            = $(TARBALLBUILDDIR)/$(TARBALLFILE)
 starball           = $(SRCBUILDDIR)/SOURCES/$(TARBALLFILE)
-scfgfile           = $(SRCBUILDDIR)/SOURCES/$(PACKAGE)-spec.conf
-skmodtool          = $(if $(KMODTOOL),$(SRCBUILDDIR)/SOURCES/kmodtool)
+skmodtool_list     = $(addprefix $(SRCBUILDDIR)/SOURCES/,$(KMODTOOL_LIST))
 sspecfile          = $(SRCBUILDDIR)/SPECS/$(SPECFILE)
 ssrpm              = $(SRCBUILDDIR)/SRPMS/$(srpmfile)
 srpm               = $(BINBUILDDIR)/SRPMS/$(srpmfile)
@@ -38,15 +36,22 @@ iptables_version_words  = $(subst ., ,$(word 2,$(subst -, ,$(EXTENSIONSDIR))))
 iptables_version_maj    = $(word 1,$(iptables_version_words))
 iptables_version_min    = $(word 2,$(iptables_version_words))
 
-rpmbuild_args      = --define '_topdir $(topdir)' \
+rpmbuild_args      = --target='$(PKGARCH)' \
+		     --define '_topdir $(topdir)' \
 		     --define '_tmppath $(rpmtmppath)' \
-		     --target='$(PKGARCH)' \
-		     --define 'kvariants $(subst ",\",$(KVARIANTS))' \
+		     --define 'kmod_name $(PACKAGE)' \
+		     --define 'kmod_driver_version $(VERSION)' \
+		     --define 'kmod_rpm_release $(RELEASE)' \
+		     $(if $(KVARIANTS),--define 'kvariants $(subst ",\",$(KVARIANTS))') \
+		     $(if $(OSMACRO),--define '$(OSMACRO) $(OSMACROVER)') \
+		     $(if $(URL),--define 'url $(URL)') \
+		     $(if $(KVERREL),--define 'kmod_kernel_version $(KVERREL)') \
+		     $(if $(KMODTOOL_LIST),--define 'kmodtool_list $(KMODTOOL_LIST)') \
 		     $(rpmbuild_extras)
 
 clean_files     =  $(rpm) $(srpm) $(ssrpm) \
 		   $(tarball) $(starball) \
-		   $(scfgfile) $(sspecfile) $(skmodtool)
+		   $(sspecfile) $(skmodtool_list)
 clobber_files   = $(BINBUILDDIR) $(SRCBUILDDIR) $(TARBALLBUILDDIR)
 distclean_files = $(clobber_files)
 
@@ -58,14 +63,13 @@ srpm: $(ssrpm)
 
 tarball: $(tarball)
 
-scfgfile: $(scfgfile)
-
 $(rpm): topdir = $(PWD)/$(BINBUILDDIR)
 $(rpm): $(srpm)
 	$(call mkdirs_cmd_call,$(BINBUILDDIR))
 	$(call mkrpmdirs_cmd_call,$(BINBUILDDIR))
 	rpm -i --define '_topdir $(topdir)' '$(topdir)/SRPMS/$(<F)'
 	rpmbuild -bb \
+	    --define 'dist $(if $(DIST),$(DIST),%{nil})' \
 	    $(rpmbuild_args) \
 	    $(without_kabichk) \
 	    '$(topdir)/SPECS/$(SPECFILE)'
@@ -74,51 +78,26 @@ $(srpm): $(ssrpm)
 	$(call copy_file_cmd_call,$<,$@)
 
 $(ssrpm): topdir = $(PWD)/$(SRCBUILDDIR)
-$(ssrpm): $(starball) $(scfgfile) $(sspecfile) $(skmodtool)
+$(ssrpm): $(starball) $(sspecfile) $(skmodtool_list)
 	$(call mkdirs_cmd_call,$(@D))
 	rpmbuild -bs \
+	    --define 'dist %{nil}' \
 	    $(rpmbuild_args) \
 	    '$(topdir)/SPECS/$(SPECFILE)'
 
 $(starball): $(tarball)
 	$(call copy_file_cmd_call,$<,$@)
 
-$(scfgfile):
-	$(call mkrpmdirs_cmd_call,$(SRCBUILDDIR))
-	rm -f -- '$@'
-ifneq ($(OSMACRO),)
-	echo "%if !0%{?opensuse_bs}" > '$@'
-	echo "%define $(OSMACRO) $(OSMACROVER)" >> '$@'
-	echo "%endif" >> '$@'
-endif
-ifneq ($(DIST),)
-	echo "%define dist $(DIST)" >> '$@'
-else
-	echo "%define dist %{nil}" >> '$@'
-endif
-ifneq ($(URL),)
-	echo "%define url $(URL)" >> '$@'
-endif
-ifneq ($(KMODTOOL),)
-	echo "%define kmodtool_local 1" >> '$@'
-endif
-	echo "%define kmod_name $(PACKAGE)" >> '$@'
-	echo "%define kmod_driver_version $(VERSION)" >> '$@'
-	echo "%define kmod_rpm_release $(RELEASE)" >> '$@'
-ifneq ($(KVERREL),)
-	echo "%define kmod_kernel_version $(KVERREL)" >> '$@'
-endif
-	echo "%define iptables_version_maj $(iptables_version_maj)" >> '$@'
-	echo "%define iptables_version_min $(iptables_version_min)" >> '$@'
-	chmod -w -- '$@'
-
 $(sspecfile): $(SPECFILE)
 	$(call copy_file_cmd_call,$<,$@)
 
-ifneq ($(KMODTOOL),)
-$(skmodtool): $(KMODTOOL)
+$(foreach t,$(KMODTOOL_LIST),\
+  $(eval \
+    $(SRCBUILDDIR)/SOURCES/$t: $t$(nl)\
+  )\
+)
+$(SRCBUILDDIR)/SOURCES/%: %
 	$(call copy_file_cmd_call,$<,$@)
-endif
 
 $(tarball):
 	$(call mkdirs_cmd_call,$(TARBALLBUILDDIR))
@@ -142,4 +121,4 @@ clean clobber distclean::
 	$(call scrub_files_cmd_call,$($@_files))
 
 
-.PHONY: all rpm srpm tarball scfgfile clean clobber distclean
+.PHONY: all rpm srpm tarball clean clobber distclean

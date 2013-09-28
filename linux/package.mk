@@ -1,12 +1,15 @@
 # May be passed in to override defaults:
-#   OSES
-#   PLATFORMS
+#   PLATFORMS or OSES and ARCHES
 #   RELEASE_BUILD_DATE
+#   PKGFILE
+#   CONFIG_ARGS
 #
 # Sets (directly or indirectly) for Makefile's use:
 #   OSES
 #   ARCHES
 #   PLATFORMS
+#   SUBDIRS
+#   KMODTOOL_LIST
 #   ENVBUILD_MKFILE
 #   TARBALL_MKFILE
 #   PACKAGE_$(os)
@@ -15,10 +18,7 @@
 #   RELEASE_$(os)
 #   DIST_$(os)
 #   SPECFILE_$(os)
-#   KMODTOOL_$(os)
-#   KMODDIR_$(os)
 #   KVERREL_$(os)
-#   EXTENSIONSDIR_$(os)
 #   RELEASE_BUILD_DATE_$(os)
 #   PKGARCH_$(arch)
 #   KVARIANTS_$(os).$(arch)
@@ -36,15 +36,34 @@ Package		 = iptables-daddr
 Version		 = 0.6.2
 Release		 = 20130818
 Dist		 =
-ExtensionsDir	 = extensions-1.4
-KmodDir		 = kmod-xt
-Kmodtool	 =
+Subdirs		 = extensions-1.2 extensions-1.3 extensions-1.4 \
+		   kmod-ipt kmod-xt-older kmod-xt
+Kmodtool_list	 = kmodtool.el5 kmodtool.el6
 
 Todays_Date := $(shell date '+%Y%m%d')
 
-ifeq ($(NATIVE),)
-include $(wildcard package-*.mk)
+
+NATIVEPKGFILE   ?= package-native.mk
+PKGFILE         ?= $(filter-out $(NATIVEPKGFILE),$(wildcard package-*.mk))
+
+do_native =
+ifneq ($(NATIVE),)
+  do_native = 1
 endif
+
+ifeq ($(PKGFILE),)
+  do_native = 1
+endif
+
+ifneq ($(do_native),)
+  ifeq ($(wildcard $(NATIVEPKGFILE)),)
+    $(shell ./config-native $(CONFIG_ARGS) > $(NATIVEPKGFILE))
+  endif
+  include $(NATIVEPKGFILE)
+else
+  include $(PKGFILE)
+endif
+
 
 ifneq ($(PLATFORMS),)
   OSES   := $(sort $(basename $(PLATFORMS)))
@@ -74,26 +93,26 @@ $(eval \
     PACKAGE_$o	 := $$(if $(Package_$o),$(Package_$o),$(Package))$(nl)\
     PKGNAME_$o   := $$(if $(Pkgname_$o),$(Pkgname_$o),$$(PACKAGE_$o)-$$(VERSION_$o)-$$(RELEASE_$o))$(nl)\
     SPECFILE_$o  := $$(if $(Specfile_$o),$(Specfile_$o),$$(PACKAGE_$o).spec)$(nl)\
-    KMODTOOL_$o  := $$(if $(Kmodtool_$o),$(Kmodtool_$o),$(Kmodtool))$(nl)\
-    KMODDIR_$o   := $$(if $(KmodDir_$o),$(KmodDir_$o),$(KmodDir))$(nl)\
-    KVERREL_$o   := $$(or $(Kverrel_$o))$(nl)\
-    EXTENSIONSDIR_$o      := $$(if $(ExtensionsDir_$o),$(ExtensionsDir_$o),$(ExtensionsDir))$(nl)\
+    KVERREL_$o   := $$(if $(Kverrel_$o),$(Kverrel_$o),)$(nl)\
     RELEASE_BUILD_DATE_$o := $$(if $(Release_Build_Date_$o),$(Release_Build_Date_$o),$$(if $(Release_Build_Date),$(Release_Build_Date),$$(if $(RELEASE_BUILD_DATE),$(RELEASE_BUILD_DATE),$(Todays_Date))))$(nl)\
   )\
 )
 
+KMODTOOL_LIST	?= $(Kmodtool_list)
+SUBDIRS		?= $(Subdirs)
 ENVBUILD_MKFILE ?= mk/Makefile.build
 TARBALL_MKFILE  ?= mk/Makefile.tarball
 
 PACKAGE_SUB_EXTRA_VARS +=	\
+	KMODTOOL_LIST		\
+	SUBDIRS			\
 	TARBALL_MKFILE		\
-	KMODTOOL		\
-	KMODDIR			\
 	KVERREL			\
-	EXTENSIONSDIR		\
 	RELEASE_BUILD_DATE
 
 PACKAGE_vars += 		\
+	KMODTOOL_LIST		\
+	SUBDIRS			\
 	ENVBUILD_MKFILE		\
 	TARBALL_MKFILE
 
@@ -104,10 +123,7 @@ PACKAGE_vars_os += 		\
 	RELEASE			\
 	DIST			\
 	SPECFILE		\
-	KMODTOOL		\
-	KMODDIR			\
 	KVERREL			\
-	EXTENSIONSDIR		\
 	RELEASE_BUILD_DATE	\
 	SPECFILE
 

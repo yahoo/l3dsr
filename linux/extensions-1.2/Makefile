@@ -1,7 +1,7 @@
 # When making "install" target, libdir must be set by rpmbuild.
 
 CFLAGS   = -O2 -g -Wall -Wunused -fPIC
-INCPATH  = ../kmod include
+INCPATH  = ../kmod-ipt include
 CPPFLAGS = $(addprefix -I,$(INCPATH)) -DIPTABLES_VERSION=\"1.2.11\"
 LINK.so  = $(LINK.o) -shared
 
