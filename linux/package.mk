@@ -33,8 +33,8 @@
 include mk/macros.mk
 
 Package		 = iptables-daddr
-Version		 = 0.6.2
-Release		 = 20130818
+Version		 = 0.7.0
+Release		 = 20140319
 Dist		 =
 Subdirs		 = extensions-1.2 extensions-1.3 extensions-1.4 \
 		   kmod-ipt kmod-xt-older kmod-xt

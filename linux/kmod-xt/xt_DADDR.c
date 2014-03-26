@@ -1,6 +1,6 @@
 /* This module sets the IP destination address field. */
 
-/* Copyright (C) 2011, 2012 Yahoo! Inc.
+/* Copyright (C) 2011, 2012, 2014 Yahoo! Inc.
  *    Written by: Quentin Barnes <qbarnes@yahoo-inc.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -14,6 +14,7 @@
 #include <linux/ipv6.h>
 #include <linux/tcp.h>
 #include <linux/version.h>
+#include <net/ip.h>
 #include <net/ipv6.h>
 #include <net/checksum.h>
 
@@ -40,11 +41,43 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 	struct iphdr *iph = ip_hdr(skb);
 
 	if (iph->daddr != new_daddr) {
-		if (!skb_make_writable(skb, sizeof(struct iphdr)))
+		__u8	proto;
+
+		if (!skb_make_writable(skb, skb->len))
 			return NF_DROP;
 
 		iph = ip_hdr(skb);
 		csum_replace4(&iph->check, iph->daddr, new_daddr);
+
+		proto = iph->protocol;
+
+		if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
+			int	hdroff = (int)ip_hdrlen(skb);
+			int	len = skb->len - hdroff;
+			__sum16	*checkp;
+
+			if (proto == IPPROTO_TCP) {
+				struct tcphdr *tcph;
+
+				if (len < (int)sizeof(struct tcphdr))
+					return NF_DROP;
+
+				tcph = (struct tcphdr *)
+					(skb_network_header(skb) + hdroff);
+				checkp = &tcph->check;
+			} else {
+				struct udphdr *udph;
+
+				if (len < (int)sizeof(struct udphdr))
+					return NF_DROP;
+
+				udph = (struct udphdr *)
+					(skb_network_header(skb) + hdroff);
+				checkp = &udph->check;
+			}
+
+			csum_replace4(checkp, iph->daddr, new_daddr);
+		}
 
 		iph->daddr = new_daddr;
 	}
@@ -62,16 +95,57 @@ daddr_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 	struct ipv6hdr *ip6h = ipv6_hdr(skb);
 
 	if (!ipv6_addr_equal(&ip6h->daddr, new_daddr6)) {
-		int i;
+		__u8	proto;
+		int	hdroff;
 
-		if (!skb_make_writable(skb, sizeof(struct ipv6hdr)))
+		if (!skb_make_writable(skb, skb->len))
 			return NF_DROP;
 
 		ip6h = ipv6_hdr(skb);
-		for (i = 0 ; i < ARRAY_SIZE(new_daddr6->s6_addr32) ; i++)
-			csum_replace4(&tcp_hdr(skb)->check,
-				      ip6h->daddr.s6_addr32[i],
-				      new_daddr6->s6_addr32[i]);
+
+		proto = ip6h->nexthdr;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+		{
+		__be16	frag_off;
+		hdroff = ipv6_skip_exthdr(skb, (u8*)(ip6h+1) - skb->data,
+					  &proto, &frag_off);
+		}
+#else
+		hdroff = ipv6_skip_exthdr(skb, (u8*)(ip6h+1) - skb->data,
+					  &proto);
+#endif
+
+		if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
+			int	len = skb->len - hdroff;
+			__u16	*checkp;
+			int	i;
+
+			if (proto == IPPROTO_TCP) {
+				struct tcphdr	*tcph;
+
+				if (len < (int)sizeof(struct tcphdr))
+					return NF_DROP;
+
+				tcph = (struct tcphdr *)
+					(skb_network_header(skb) + hdroff);
+				checkp = &tcph->check;
+			} else {
+				struct udphdr	*udph;
+
+				if (len < (int)sizeof(struct udphdr))
+					return NF_DROP;
+
+				udph = (struct udphdr *)
+					(skb_network_header(skb) + hdroff);
+				checkp = &udph->check;
+			}
+
+			for (i = 0; i < ARRAY_SIZE(new_daddr6->s6_addr32); i++)
+				csum_replace4(checkp,
+					      ip6h->daddr.s6_addr32[i],
+					      new_daddr6->s6_addr32[i]);
+		}
 
 		ip6h->daddr = *new_daddr6;
 	}

@@ -1,6 +1,6 @@
 /* This module sets the IP destination address field. */
 
-/* (C) 2008, 2009, 2010, 2011, 2012 Yahoo! Inc.
+/* (C) 2008, 2009, 2010, 2011, 2012, 2014 Yahoo! Inc.
  *    Written by: Quentin Barnes <qbarnes@yahoo-inc.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/ip.h>
+#include <net/ip.h>
 #include <net/ipv6.h>
 #include <net/checksum.h>
 #include <linux/netfilter/x_tables.h>
@@ -23,6 +24,12 @@ MODULE_ALIAS("ipt_DADDR");
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 MODULE_ALIAS("ip6t_DADDR");
 #endif
+
+
+#define ip_hdr(skb) ((skb)->nh.iph)
+#define ip_hdrlen(skb) (ip_hdr(skb)->ihl * 4)
+#define network_header nh.raw
+#define skb_network_header(skb) ((skb)->network_header)
 
 
 /* Both csum functions copied back from a later version of <net/checksum.h> */
@@ -54,15 +61,48 @@ daddr_tg4(struct sk_buff **pskb,
 {
 	const struct xt_daddr_tginfo *daddrinfo = targinfo;
 	__be32 new_daddr = daddrinfo->u.daddr.s_addr;
-	struct iphdr *iph = (*pskb)->nh.iph;
+	struct iphdr *iph = ip_hdr(*pskb);
 
 	if (iph->daddr != new_daddr) {
-		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
+		struct sk_buff	*skb;
+		__u8		proto;
+
+		if (!skb_make_writable(pskb, (*pskb)->len))
 			return NF_DROP;
 
-		iph = (*pskb)->nh.iph;
-
+		skb = *pskb;
+		iph = ip_hdr(skb);
 		daddr_csum_replace4(&iph->check, iph->daddr, new_daddr);
+
+		proto = iph->protocol;
+
+		if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
+			int	hdroff = (int)ip_hdrlen(skb);
+			int	len = skb->len - hdroff;
+			__u16	*checkp;
+
+			if (proto == IPPROTO_TCP) {
+				struct tcphdr *tcph;
+
+				if (len < (int)sizeof(struct tcphdr))
+					return NF_DROP;
+
+				tcph = (struct tcphdr *)
+					(skb_network_header(skb) + hdroff);
+				checkp = &tcph->check;
+			} else {
+				struct udphdr *udph;
+
+				if (len < (int)sizeof(struct udphdr))
+					return NF_DROP;
+
+				udph = (struct udphdr *)
+					(skb_network_header(skb) + hdroff);
+				checkp = &udph->check;
+			}
+
+			daddr_csum_replace4(checkp, iph->daddr, new_daddr);
+		}
 
 		iph->daddr = new_daddr;
 	}
@@ -82,23 +122,56 @@ daddr_tg6(struct sk_buff **pskb,
 	  void *userinfo)
 {
 	const struct xt_daddr_tginfo *daddrinfo = targinfo;
-	const struct in6_addr *new_daddr = &daddrinfo->u.daddr6;
+	const struct in6_addr *new_daddr6 = &daddrinfo->u.daddr6;
 	struct ipv6hdr *ip6h = (*pskb)->nh.ipv6h;
 
-	if (!ipv6_addr_equal(&ip6h->daddr, new_daddr)) {
-		int i;
+	if (!ipv6_addr_equal(&ip6h->daddr, new_daddr6)) {
+		struct sk_buff	*skb;
+		__u8		proto;
+		int		hdroff;
 
 		if (!skb_make_writable(pskb, (*pskb)->len))
 			return NF_DROP;
 
-		ip6h = (*pskb)->nh.ipv6h;
+		skb = *pskb;
+		ip6h = skb->nh.ipv6h;
 
-		for (i = 0 ; i < ARRAY_SIZE(new_daddr->s6_addr32) ; i++)
-			daddr_csum_replace4(&(*pskb)->h.th->check,
-					    ip6h->daddr.s6_addr32[i],
-					    new_daddr->s6_addr32[i]);
+		proto = ip6h->nexthdr;
+		hdroff = ipv6_skip_exthdr(skb, (u8*)(ip6h+1) - skb->data,
+					  &proto);
 
-		ip6h->daddr = *new_daddr;
+		if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
+			int	len = skb->len - hdroff;
+			__u16	*checkp;
+			int	i;
+
+			if (proto == IPPROTO_TCP) {
+				struct tcphdr	*tcph;
+
+				if (len < (int)sizeof(struct tcphdr))
+					return NF_DROP;
+
+				tcph = (struct tcphdr *)
+					(skb_network_header(skb) + hdroff);
+				checkp = &tcph->check;
+			} else {
+				struct udphdr	*udph;
+
+				if (len < (int)sizeof(struct udphdr))
+					return NF_DROP;
+
+				udph = (struct udphdr *)
+					(skb_network_header(skb) + hdroff);
+				checkp = &udph->check;
+			}
+
+			for (i = 0; i < ARRAY_SIZE(new_daddr6->s6_addr32); i++)
+				daddr_csum_replace4(checkp,
+						    ip6h->daddr.s6_addr32[i],
+						    new_daddr6->s6_addr32[i]);
+		}
+
+		ip6h->daddr = *new_daddr6;
 	}
 
 	return XT_CONTINUE;

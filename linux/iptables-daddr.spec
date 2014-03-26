@@ -281,6 +281,11 @@ done
 
 
 %changelog
+* Wed Mar 19 2014 Quentin Barnes <qbarnes@yahoo-inc.com> 0.7.0-20140319
+- Add explicit support for UDP.
+- Fix problem with code assuming all IPv6 packets are TCP.
+- Fix problem with NICs that don't do TCP offloading including virtio_net.
+
 * Sun Aug 18 2013 Quentin Barnes <qbarnes@yahoo-inc.com> 0.6.2-20130818
 - Update to new build process.
 - Synchronize all released versions.
