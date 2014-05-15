@@ -318,5 +318,5 @@ done
 - Update Makefiles to simplify build.
 - Fix uninstall problems to remove kernel module if loaded.
 
-* Mon Sep 11 2008 Quentin Barnes <qbarnes@yahoo-inc.com> 0.1-20080911
+* Thu Sep 11 2008 Quentin Barnes <qbarnes@yahoo-inc.com> 0.1-20080911
 - Initial release
