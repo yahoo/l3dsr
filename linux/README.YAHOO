@@ -1,0 +1,70 @@
+To build new RPMs --
+
+Either edit the "package-yahoo.mk" file or set from the make command
+line the following make macros:
+
+   OSES or PLATFORMS:
+
+      For example, if doing RHEL6 builds:
+      "OSES = rhel6"
+
+      If doing RHEL4 and RHEL5 builds together:
+      "OSES = rhel4 rhel5"
+
+      Or to build just RHEL5 i686 and RHEL6 x86_64 together:
+      "PLATFORMS = rhel5.i686 rhel6.x86_64"
+
+      Do not set both OSES and PLATFORMS at the same time.
+
+   RELEASE_BUILD_DATE_$(os):
+
+      Set it for your target OS(es) or leave unset to use the current
+      date.
+
+      For example, "RELEASE_BUILD_DATE_rhel5 = 20110602"
+
+      Alternately, setting "RELEASE_BUILD_DATE" will set the default
+      for all "RELEASE_BUILD_DATE_$(os)" macros.
+
+Check:
+   ~/.rpmmacros
+
+      Set "%_smp_mflags  -jN" with an "N" that's appropriate for the
+      system you're on.
+
+      If building RHEL4, make sure you don't have a %__arch_install_post
+      line that references /usr/lib/rpm/check-rpaths.
+
+Now run:
+
+   $ make
+
+      Make first looks for the named yroot(s) necessary for the
+      build(s) and creates them if not found, then populates them
+      with the RPMs it needs that are not already present in their
+      yroot image(s).
+
+      Next, the build step runs in three phases.  The first phase
+      builds a tar file.  The second phase builds a source RPM from
+      the tar file.  The third phase builds the binary RPMs from the
+      source RPM.
+
+      The above steps and phases are repeated for each platform
+      until all are built.
+
+   Some other examples:
+      $ make RELEASE_BUILD_DATE_rhel4=20130111 OSES=rhel4
+      $ make PLATFORMS="rhel5.i686"
+      $ make NATIVE=1
+
+   If a build was successful, you'll find its source RPM with:
+      $ ls -l build-src/SRPMS
+
+   and its binary RPMs with:
+      $ ls -l build-*/RPMS/*
+
+
+When copying the tree to github, leave out the files:
+   README.YAHOO
+   package-yahoo.mk
+   mk/Makefile.ybuild
