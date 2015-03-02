@@ -19,7 +19,7 @@ tarball_mkvars = \
 	$(PACKAGE_SUB_EXTRA_VARS)
 
 
-srpmfile           = $(PKGNAME).src.rpm
+srpmfile           = $(PKGNAME)$(DIST).src.rpm
 rpmfile            = $(PKGNAME)$(DIST).$(PKGARCH).rpm
 
 tarball            = $(TARBALLBUILDDIR)/$(TARBALLFILE)
@@ -36,8 +36,7 @@ iptables_version_words  = $(subst ., ,$(word 2,$(subst -, ,$(EXTENSIONSDIR))))
 iptables_version_maj    = $(word 1,$(iptables_version_words))
 iptables_version_min    = $(word 2,$(iptables_version_words))
 
-rpmbuild_args      = --target='$(PKGARCH)' \
-		     --define '_topdir $(topdir)' \
+rpmbuild_args      = --define '_topdir $(topdir)' \
 		     --define '_tmppath $(rpmtmppath)' \
 		     --define 'kmod_name $(PACKAGE)' \
 		     --define 'kmod_driver_version $(VERSION)' \
@@ -70,6 +69,7 @@ $(rpm): $(srpm)
 	rpm -i --define '_topdir $(topdir)' '$(topdir)/SRPMS/$(<F)'
 	rpmbuild -bb \
 	    --define 'dist $(if $(DIST),$(DIST),%{nil})' \
+	    --target='$(PKGARCH)' \
 	    $(rpmbuild_args) \
 	    $(without_kabichk) \
 	    '$(topdir)/SPECS/$(SPECFILE)'
@@ -81,7 +81,7 @@ $(ssrpm): topdir = $(PWD)/$(SRCBUILDDIR)
 $(ssrpm): $(starball) $(sspecfile) $(skmodtool_list)
 	$(call mkdirs_cmd_call,$(@D))
 	rpmbuild -bs \
-	    --define 'dist %{nil}' \
+	    --target='noarch' \
 	    $(rpmbuild_args) \
 	    '$(topdir)/SPECS/$(SPECFILE)'
 
