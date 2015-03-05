@@ -52,6 +52,7 @@ endif
 
 ARCHES := $(sort $(patsubst .%,%,$(suffix $(PLATFORMS))))
 
+URL = http://twiki.corp.yahoo.com/view/Platform/Iptables-daddr
 
 OSMACRO_rhel4       = rhel_version
 OSMACROVER_rhel4    = 406
@@ -102,7 +103,8 @@ PACKAGE_ENVBUILD_EXTRA_VARS +=		\
 	ROOT				\
 	ROOTIMG				\
 	KVARIANTS			\
-	KVERREL
+	KVERREL				\
+	URL
 
 PACKAGE_vars_os +=			\
 	OSDIST				\

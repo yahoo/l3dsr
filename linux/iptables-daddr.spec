@@ -61,8 +61,6 @@ URL: %{url}
 Vendor: Yahoo! Inc.
 Packager: Quentin Barnes <qbarnes@yahoo-inc.com>
 
-BuildRequires: /bin/sed
-
 %if 0%{?rhel_version} == 406
 Requires: module-init-tools >= 3.1-0.pre5.3.10
 %endif
@@ -102,9 +100,6 @@ Requires: %{name}-kmod >= %{version}
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %define _prefix %{nil}
-%define rpmversion %{version}-%{release}
-%define fullpkgname %{name}-%{rpmversion}
-
 Source0: %{name}-%{version}.tar.bz2
 
 %if 0%{?kmodtool_list:1}
@@ -182,19 +177,20 @@ Source0: %{name}-%{version}.tar.bz2
 %{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants1} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
 %{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants2} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
 
-%description
 %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 2
-Enables IPv4 destination address rewriting using iptables rules.
+%define hmsg Enables IPv4 destination address rewriting using iptables rules.
 %else
-Enables IPv4 and IPv6 destination address rewriting using iptables rules.
+%define hmsg Enables IPv4 and IPv6 destination address rewriting using iptables rules.
 %endif
+
+%description
+%{hmsg}
 
 The "%{name}" package provides an iptables user-space
 plugin "DADDR" target.  The plugin requires installation of a
 "kmod-%{name}" package providing a matching kernel module for
 the running kernel.
-
-For further information: %{url}
+%{?url:For further information: %{url}}
 
 %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 3
 %description -n iptables-ipv6-daddr
@@ -204,8 +200,7 @@ The "iptables-ipv6-daddr" package provides an iptables user-space
 plugin "DADDR" target.  The plugin requires installation of a
 "kmod-%{name}" package providing a matching kernel module
 for the running kernel.
-
-For further information: %{url}
+%{?url:For further information: %{url}}
 %endif
 
 %prep
