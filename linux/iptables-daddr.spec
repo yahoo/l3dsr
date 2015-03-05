@@ -2,10 +2,10 @@
   %define kmod_name iptables-daddr
 %endif
 %if 0%{!?kmod_driver_version:1}
-  %define kmod_driver_version 0.6.2
+  %define kmod_driver_version 0.7.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release uncontrolled
+  %define kmod_rpm_release 20150304
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -281,6 +281,9 @@ done
 
 
 %changelog
+* Wed Mar 04 2015 Quentin Barnes <qbarnes@yahoo-inc.com> 0.7.0-20150304
+- Packaging only changes for some RHEL7 tweaks.
+
 * Wed Mar 19 2014 Quentin Barnes <qbarnes@yahoo-inc.com> 0.7.0-20140319
 - Add explicit support for UDP.
 - Fix problem with code assuming all IPv6 packets are TCP.
