@@ -33,7 +33,7 @@ distclean_files = $(clobber_files)
 
 commit-%: BUILD_NUMBER:=$(if $(BUILD_NUMBER),0.$(BUILD_NUMBER))
 commit-%: %;
-#component-%: def_deploy_rpms_args += -R
+component-%: def_deploy_rpms_args += -R
 component-%: %;
 
 all: rpms
