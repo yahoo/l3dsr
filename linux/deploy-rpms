@@ -306,7 +306,7 @@ else
 	BaseRepoURL=http://test.artifactory.corp.yahoo.com:9999/artifactory
 fi
 
-if (( Flag_c ))
+if (( !Flag_c ))
 then
 	[[ -n ${DeployerPassword-} ]] || \
 		Fatal "Environment variable '\$DeployerPassword' is not set."
