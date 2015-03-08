@@ -52,7 +52,7 @@ Summary: Iptables destination address rewriting for IPv4 and IPv6
 %endif
 Name: %{kmod_name}
 Version: %{kmod_driver_version}
-Release: %{kmod_rpm_release}%{?dist}
+Release: %{kmod_rpm_release}%{?build_number:.%{build_number}}%{?dist}
 License: GPLv2
 Group: Applications/System
 %if 0%{?url:1}

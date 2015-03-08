@@ -1,0 +1,71 @@
+RESULT_DIR  ?= results_$(MOCKPREFIX)/7
+PKGARCH     ?= x86_64
+PKGNAME     ?= iptables-daddr
+PKGSPECFILE ?= $(PKGNAME).spec
+MOCKPREFIX  ?= l3dsr
+
+define nl
+
+
+endef
+
+kernel_vr = 3.10.0-123.el7
+kernel_devel = kernel-devel-$(kernel_vr)
+kernel_devel_rpm = $(kernel_devel).$(PKGARCH).rpm
+kernel_rpm_repo_url = http://repo.linux.corp.yahoo.com/rhel7_kernels/$(PKGARCH)
+
+def_make_args = \
+	NATIVE=1 \
+	CONFIG_ARGS='-r $(kernel_vr)' \
+	BUILD_NUMBER='$(BUILD_NUMBER)'
+
+MOCK = mock
+def_mock_args = \
+	-r 'epel-7-$(PKGARCH)-yahoo' \
+	--uniqueext='$(MOCKPREFIX)' \
+	--resultdir '$(RESULT_DIR)/'
+
+def_deploy_rpms_args = -c -f -T '$(RESULT_DIR)'
+
+clean_files = $(kernel_devel_rpm)
+clobber_files = $(clean_files) $(RESULT_DIR)
+distclean_files = $(clobber_files)
+
+commit-%: BUILD_NUMBER:=$(if $(BUILD_NUMBER),0.$(BUILD_NUMBER))
+commit-%: %;
+#component-%: def_deploy_rpms_args += -R
+component-%: %;
+
+all: rpms
+
+publish: all
+	deploy-rpms $(def_deploy_rpms_args)
+
+tarball:
+	$(MAKE) $(def_make_args) tarball
+
+srpm: tarball mock_prep
+	$(MOCK) $(def_mock_args) \
+		--buildsrpm \
+		--spec '$(PKGSPECFILE)' \
+		--sources build-tarball
+
+rpms: srpm mock_prep $(kernel_devel_rpm)
+	$(MOCK) $(def_mock_args) --yum-cmd install '$(kernel_devel_rpm)'
+	$(MOCK) $(def_mock_args) \
+		--rpmbuild-opts="--define 'kmod_kernel_version $(kernel_vr)'" \
+		--rebuild $(RESULT_DIR)/*.src.rpm
+
+mock_prep:
+	$(MOCK) $(def_mock_args) --scrub=all
+
+$(kernel_devel_rpm):
+	wget -N -q '$(kernel_rpm_repo_url)/$(kernel_devel_rpm)' || \
+		{ rm -f -- '$(kernel_devel_rpm)'; exit 1; }
+
+clean clobber distclean:
+	$(foreach f,$(wildcard $($@_files)),rm -rf -- '$f'$(nl))
+	$(MAKE) $(def_make_args) $@
+
+.DEFAULT: commit-all
+.PHONY: all publish tarball srpm rpms mock_prep clean clobber distclean
