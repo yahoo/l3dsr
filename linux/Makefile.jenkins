@@ -39,7 +39,7 @@ component-%: %;
 all: rpms
 
 publish: all
-	bash -x ./deploy-rpms $(def_deploy_rpms_args)
+	./deploy-rpms $(def_deploy_rpms_args)
 
 tarball:
 	$(MAKE) $(def_make_args) tarball
