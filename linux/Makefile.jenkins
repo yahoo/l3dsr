@@ -1,27 +1,43 @@
-RESULT_DIR  ?= results_$(MOCKPREFIX)/7
-PKGARCH     ?= x86_64
+RPMARCH     := $(shell rpm -E '%{_arch}')
+RPMDIST     := $(shell rpm -E '%{dist}')
+
+DIST        ?= $(patsubst .%,%,$(RPMDIST))
+OSMAJNUM    ?= $(patsubst .el%,%,$(RPMDIST))
+PKGARCH     ?= $(RPMARCH)
 PKGNAME     ?= iptables-daddr
 PKGSPECFILE ?= $(PKGNAME).spec
 MOCKPREFIX  ?= l3dsr
+RESULT_DIR  ?= results_$(MOCKPREFIX)/$(DIST)
+
+UID := $(shell id -u)
+MOCK = $(if $(subst 0,,$(UID)),sudo mock,mock)
 
 define nl
 
 
 endef
 
+ifeq ($(DIST),el6)
+kernel_vr = 3.10.0-71.el6
+endif
+
+ifeq ($(DIST),el7)
 kernel_vr = 3.10.0-123.el7
+endif
+
+$(if ($(kernel_vr),),,$(error Can't determine $$kernel_vr.))
+
 kernel_devel = kernel-devel-$(kernel_vr)
 kernel_devel_rpm = $(kernel_devel).$(PKGARCH).rpm
-kernel_rpm_repo_url = http://repo.linux.corp.yahoo.com/rhel7_kernels/$(PKGARCH)
+kernel_rpm_repo_url = http://repo.linux.corp.yahoo.com/rh$(DIST)_kernels/$(PKGARCH)
 
 def_make_args = \
 	NATIVE=1 \
 	CONFIG_ARGS='-r $(kernel_vr)' \
 	BUILD_NUMBER='$(BUILD_NUMBER)'
 
-MOCK = mock
 def_mock_args = \
-	-r 'epel-7-$(PKGARCH)-yahoo' \
+	-r 'epel-$(OSMAJNUM)-$(PKGARCH)-yahoo' \
 	--uniqueext='$(MOCKPREFIX)' \
 	--resultdir '$(RESULT_DIR)/'
 
@@ -42,7 +58,7 @@ publish: all
 	./deploy-rpms $(def_deploy_rpms_args)
 
 tarball:
-	$(MAKE) $(def_make_args) tarball
+	$(MAKE) $(def_make_args) $@
 
 srpm: tarball mock_prep
 	$(MOCK) $(def_mock_args) \
