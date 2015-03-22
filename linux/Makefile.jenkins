@@ -18,7 +18,7 @@ define nl
 endef
 
 ifeq ($(DIST),el6)
-kernel_vr = 3.10.0-71.el6
+kernel_vr = 2.6.32-71.el6
 endif
 
 ifeq ($(DIST),el7)
