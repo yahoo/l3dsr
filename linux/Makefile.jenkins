@@ -9,8 +9,7 @@ PKGSPECFILE ?= $(PKGNAME).spec
 MOCKPREFIX  ?= l3dsr
 RESULT_DIR  ?= results_$(MOCKPREFIX)/$(DIST)
 
-UID := $(shell id -u)
-MOCK = $(if $(subst 0,,$(UID)),sudo mock,mock)
+MOCK = mock
 
 define nl
 
