@@ -2,7 +2,7 @@ RPMARCH     := $(shell rpm -E '%{_arch}')
 RPMDIST     := $(shell rpm -E '%{dist}')
 
 DIST        ?= $(patsubst .%,%,$(RPMDIST))
-OSMAJNUM    ?= $(patsubst .el%,%,$(DIST))
+OSMAJNUM    ?= $(patsubst el%,%,$(DIST))
 PKGARCH     ?= $(RPMARCH)
 PKGNAME     ?= iptables-daddr
 PKGSPECFILE ?= $(PKGNAME).spec
