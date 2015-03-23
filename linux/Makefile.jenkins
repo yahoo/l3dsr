@@ -66,8 +66,8 @@ srpm: tarball mock_prep
 		--sources build-tarball
 
 rpms: srpm mock_prep $(kernel_devel_rpm)
-	$(MOCK) $(def_mock_args) --yum-cmd install '$(kernel_devel_rpm)'
 	$(MOCK) $(def_mock_args) \
+		--yum-cmd install '$(kernel_devel_rpm)' \
 		--rpmbuild-opts="--define 'kmod_kernel_version $(kernel_vr)'" \
 		--rebuild $(RESULT_DIR)/*.src.rpm
 
