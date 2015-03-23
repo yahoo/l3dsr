@@ -44,7 +44,7 @@ def_deploy_rpms_args = -f -T '$(RESULT_DIR)'
 
 clean_files = $(kernel_devel_rpm)
 clobber_files = $(clean_files) $(RESULT_DIR)
-distclean_files = $(clobber_files)
+distclean_files = $(clobber_files) $(dir $(RESULT_DIR))
 
 commit-%: BUILD_NUMBER:=$(if $(BUILD_NUMBER),0.$(BUILD_NUMBER))
 commit-%: %;
