@@ -62,6 +62,7 @@ tarball:
 srpm: tarball mock_prep
 	$(MOCK) $(def_mock_args) \
 		--buildsrpm \
+		--arch noarch \
 		--spec '$(PKGSPECFILE)' \
 		--sources build-tarball
 
