@@ -62,7 +62,7 @@ function Usage
 	usage+="    -a arch		Architecture\n"
 	usage+="    -c			Use curl for deploying instead of scp\n"
 	usage+="    -f			Treat topdir as a flat directory\n"
-	usage+="    -R			Release to artifactory\n"
+	usage+="    -R			Release candidate\n"
 	usage+="    -r repo		Repo <${!Repos[@]}> "
 	usage+="(${Repo})\n"
 	usage+="    -s os		Operating system name\n"
@@ -188,8 +188,7 @@ function FilterRpms
 			;;
 		*.rpm)
 			eval $binrpms+=\(\"\$f\"\)
-			narch=$(FindArch "$Arch" "$f") ||
-				Fatal "$narch"
+			narch=$(FindArch "$Arch" "$f") || Fatal "$narch"
 			eval $archv=\"\$narch\"
 			;;
 		*)
@@ -247,16 +246,15 @@ function DeployRpms
 
 declare Os= Arch=
 declare -a SrcRpms DbgRpms BinRpms
-declare Repo=quarantine
 declare TopDir=$(rpm -E '%{_topdir}')
-declare -i Flag_c=0 Flag_f=0 Flag_R=0
+declare -i Flag_c=0 Flag_f=0 Flag_r=0
 declare -i Verbose=0
 declare opt
 declare DeployerAccount=lkt_deployer_headless
-declare BaseRepoURL BaseRepoScp
 
-declare -A Repos
-Repos=([stable]=1 [current]=1 [test]=1 [quarantine]=1)
+declare ArtiRepo=lkt-yum-builds
+declare Repo=commit
+declare -A Repos=([commit]=1 [component]=1)
 
 while getopts 'a:cfRr:s:T:v?' opt
 do
@@ -264,8 +262,8 @@ do
 	a)	Arch=$OPTARG;;
 	c)	Flag_c=1;;
 	f)	Flag_f=1;;
-	R)	Flag_R=1;;
-	r)	Repo=$OPTARG;;
+	R)	((Flag_r)) || Repo=component;;
+	r)	Flag_r=1; Repo=$OPTARG;;
 	s)	Os=$OPTARG;;
 	T)	TopDir=$OPTARG;;
 	v)	Verbose=1;;
@@ -277,9 +275,7 @@ shift $((OPTIND - 1))
 if (( $# == 0 ))
 then
 	[[ -n $TopDir ]] || Fatal "Cannot determine _topdir."
-
-	[[ -d $TopDir ]] || \
-		Fatal "The path '$TopDir' is not a directory."
+	[[ -d $TopDir ]] || Fatal "The path '$TopDir' is not a directory."
 
 	declare -a rpms
 	if (( Flag_f ))
@@ -298,14 +294,8 @@ else
 	declare Rpms=("$@")
 fi
 
-if (( Flag_R ))
-then
-	BaseRepoURL=http://artifactory.ops.yahoo.com:9999/artifactory
-	BaseRepoScp=artifactory-ssh-proxy.corp.yahoo.com
-else
-	BaseRepoURL=http://test.artifactory.corp.yahoo.com:9999/artifactory
-	BaseRepoScp=stg-artifactory-ssh-proxy-01.infra.corp.bf1.yahoo.com
-fi
+declare BaseRepoURL=http://artifactory.ops.yahoo.com:9999/artifactory/$ArtiRepo
+declare BaseRepoScp=artifactory-ssh-proxy.corp.yahoo.com:/$ArtiRepo
 
 if (( Flag_c ))
 then
@@ -313,7 +303,7 @@ then
 		Fatal "Environment variable '\$DeployerPassword' is not set."
 fi
 
-(( ${Repos[$Repo]:-0} )) ||
+(( ${Repos[$Repo]:-0} )) || \
 	Fatal "Repo '$Repo' not one of '${!Repos[@]}'."
 
 declare vOS vArch dontcare
@@ -335,18 +325,18 @@ esac
 
 (( !${#SrcRpms[@]} )) || \
 	DeployRpms \
-		"$BaseRepoURL/lkt-yum/$Os/$Repo/Source/Packages" \
-		"$BaseRepoScp:/lkt-yum/$Os/$Repo/Source/Packages" \
+		"$BaseRepoURL/$Os/$Repo/Source/Packages" \
+		"$BaseRepoScp/$Os/$Repo/Source/Packages" \
 		"${SrcRpms[@]}"
 
 (( !${#DbgRpms[@]} )) || \
 	DeployRpms \
-		"$BaseRepoURL/lkt-yum/$Os/$Repo/$Arch-debug/Packages" \
-		"$BaseRepoScp:/lkt-yum/$Os/$Repo/$Arch-debug/Packages" \
+		"$BaseRepoURL/$Os/$Repo/$Arch-debug/Packages" \
+		"$BaseRepoScp/$Os/$Repo/$Arch-debug/Packages" \
 		"${DbgRpms[@]}"
 
 (( !${#BinRpms[@]} )) || \
 	DeployRpms \
-		"$BaseRepoURL/lkt-yum/$Os/$Repo/$Arch/Packages" \
-		"$BaseRepoScp:/lkt-yum/$Os/$Repo/$Arch/Packages" \
+		"$BaseRepoURL/$Os/$Repo/$Arch/Packages" \
+		"$BaseRepoScp/$Os/$Repo/$Arch/Packages" \
 		"${BinRpms[@]}"
