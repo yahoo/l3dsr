@@ -6,7 +6,7 @@ OSMAJNUM    ?= $(patsubst el%,%,$(DIST))
 PKGARCH     ?= $(RPMARCH)
 PKGNAME     ?= iptables-daddr
 PKGSPECFILE ?= $(PKGNAME).spec
-MOCKPREFIX  ?= l3dsr
+MOCKPREFIX  ?= l3dsr$(if $(JOB_NAME),-$(JOB_NAME))
 RESULT_DIR  ?= results_$(MOCKPREFIX)/$(DIST)
 
 MOCK = mock
