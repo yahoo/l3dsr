@@ -265,6 +265,7 @@ do
 	R)	ArtiRepo=lkt-yum
 		(( Flag_r )) || Repo=latest
 		Repos=([latest]=1 [current]=1 [beta]=1 [stable]=1)
+		;;
 	r)	Flag_r=1; Repo=$OPTARG;;
 	s)	Os=$OPTARG;;
 	T)	TopDir=$OPTARG;;
