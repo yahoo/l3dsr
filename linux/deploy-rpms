@@ -262,7 +262,9 @@ do
 	a)	Arch=$OPTARG;;
 	c)	Flag_c=1;;
 	f)	Flag_f=1;;
-	R)	((Flag_r)) || Repo=component;;
+	R)	ArtiRepo=lkt-yum
+		(( Flag_r )) || Repo=latest
+		Repos=([latest]=1 [current]=1 [beta]=1 [stable]=1)
 	r)	Flag_r=1; Repo=$OPTARG;;
 	s)	Os=$OPTARG;;
 	T)	TopDir=$OPTARG;;
@@ -294,7 +296,7 @@ else
 	declare Rpms=("$@")
 fi
 
-declare BaseRepoURL=http://artifactory.ops.yahoo.com:9999/artifactory/$ArtiRepo
+declare BaseRepoURL=http://artifactory.ops.yahoo.com:4080/artifactory/$ArtiRepo
 declare BaseRepoScp=artifactory-ssh-proxy.corp.yahoo.com:/$ArtiRepo
 
 if (( Flag_c ))
