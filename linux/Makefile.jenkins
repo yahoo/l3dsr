@@ -57,7 +57,8 @@ publish: all
 	./deploy-rpms $(def_deploy_rpms_args)
 
 tarball:
-	$(MAKE) $(def_make_args) $@
+	$(MOCK) (def_mock_args) \
+		--chroot $(MAKE) $(def_make_args) $@
 
 srpm: tarball mock_prep
 	$(MOCK) $(def_mock_args) \
