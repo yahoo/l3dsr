@@ -31,7 +31,7 @@ kernel_devel_rpm = $(kernel_devel).$(PKGARCH).rpm
 kernel_rpm_repo_url = http://repo.linux.corp.yahoo.com/rh$(DIST)_kernels/$(PKGARCH)
 
 def_make_args = \
-	NATIVE=1 \
+	PLATFORMS='rh$(DIST).$(RPMARCH)' \
 	CONFIG_ARGS='-r $(kernel_vr)' \
 	BUILD_NUMBER='$(BUILD_NUMBER)'
 
@@ -57,8 +57,7 @@ publish: all
 	./deploy-rpms $(def_deploy_rpms_args)
 
 tarball:
-	$(MOCK) $(def_mock_args) \
-		--chroot $(MAKE) $(def_make_args) $@
+	$(MAKE) $(def_make_args) $@
 
 srpm: tarball mock_prep
 	$(MOCK) $(def_mock_args) \
