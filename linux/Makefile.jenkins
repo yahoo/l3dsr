@@ -41,6 +41,8 @@ def_mock_args = \
 	-r 'epel-$(OSMAJNUM)-$(PKGARCH)-yahoo' \
 	--uniqueext='$(MOCKPREFIX)' \
 	--resultdir '$(RESULT_DIR)/' \
+	--define 'kmod_kernel_version $(kernel_vr)'" \
+	--define 'kmodtool_list kmodtool.el5 kmodtool.el6'" \
 	$(def_mock_args_extra)
 
 def_deploy_rpms_args = -f -T '$(RESULT_DIR)'
@@ -74,7 +76,6 @@ rpms: srpm mock_prep $(kernel_devel_rpm)
 		--yum-cmd install '$(kernel_devel_rpm)'
 	$(MOCK) $(def_mock_args) \
 		--no-clean \
-		--rpmbuild-opts="--define 'kmod_kernel_version $(kernel_vr)'" \
 		--rebuild $(RESULT_DIR)/*.src.rpm
 
 mock_prep:
