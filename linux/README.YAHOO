@@ -68,3 +68,5 @@ When copying the tree to github, leave out the files:
    README.YAHOO
    package-yahoo.mk
    mk/Makefile.ybuild
+   Makefile.jenkins
+   deploy-rpms
