@@ -18,10 +18,12 @@ endef
 
 ifeq ($(DIST),el6)
 kernel_vr = 2.6.32-71.el6
+def_mock_args_extra += --define 'rhel_version 600'
 endif
 
 ifeq ($(DIST),el7)
 kernel_vr = 3.10.0-123.el7
+def_mock_args_extra += --define 'rhel_version 700'
 endif
 
 $(if ($(kernel_vr),),,$(error Can't determine $$kernel_vr.))
@@ -31,14 +33,15 @@ kernel_devel_rpm = $(kernel_devel).$(PKGARCH).rpm
 kernel_rpm_repo_url = http://repo.linux.corp.yahoo.com/rh$(DIST)_kernels/$(PKGARCH)
 
 def_make_args = \
-	PLATFORMS='rh$(DIST).$(RPMARCH)' \
+	NATIVE=1 \
 	CONFIG_ARGS='-r $(kernel_vr)' \
 	BUILD_NUMBER='$(BUILD_NUMBER)'
 
 def_mock_args = \
 	-r 'epel-$(OSMAJNUM)-$(PKGARCH)-yahoo' \
 	--uniqueext='$(MOCKPREFIX)' \
-	--resultdir '$(RESULT_DIR)/'
+	--resultdir '$(RESULT_DIR)/' \
+	$(def_mock_args_extra)
 
 def_deploy_rpms_args = -f -T '$(RESULT_DIR)'
 

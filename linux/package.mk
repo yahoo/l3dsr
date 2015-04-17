@@ -55,14 +55,7 @@ ifeq ($(PKGFILE),)
   do_native = 1
 endif
 
-ifneq ($(do_native),)
-  ifeq ($(wildcard $(NATIVEPKGFILE)),)
-    $(shell ./config-native $(CONFIG_ARGS) > $(NATIVEPKGFILE))
-  endif
-  include $(NATIVEPKGFILE)
-else
-  include $(PKGFILE)
-endif
+sinclude $(if $(do_native),$(NATIVEPKGFILE),$(PKGFILE))
 
 
 ifneq ($(PLATFORMS),)

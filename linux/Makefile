@@ -115,5 +115,7 @@ clean clobber distclean::
 clean clobber distclean::
 	$(call scrub_files_cmd_call,$($@_files))
 
+$(NATIVEPKGFILE):
+	./config-native $(CONFIG_ARGS) > '$@'
 
 .PHONY: all tarball rpms srpms create_buildenvs prep_buildenvs clean clobber distclean
