@@ -13,15 +13,18 @@
 #   KmodDir_$(os)
 #   KVARIANTS_$p
 #
-# Also sets for other uses:
+# Sets for other uses:
+#   PACKAGE_ENVBUILD_EXTRA_VARS
+#
+# Sets for mock builds:
+#   MOCK
+#   MOCK_SRPM_ARGS
+#   MOCK_RPM_ARGS
+#
+# Sets for non-mock builds:
 #   ROOTIMG_$(os)
 #   ROOT_$p
-#   PACKAGE_ENVBUILD_EXTRA_VARS
 
-
-ROOTIMG_rhel4     ?= 4.9-20110216
-ROOTIMG_rhel5     ?= 5.8-20120221
-ROOTIMG_rhel6     ?= 6.4-20130325
 
 ENVBUILD_MKFILE    = mk/Makefile.ybuild
 
@@ -89,26 +92,57 @@ Kverrel_rhel5   = 2.6.18-53.el5
 Kverrel_rhel6   = 2.6.32-71.el6
 Kverrel_fc17    = 2.6.32-71.fc17
 
-$(eval \
-  $(foreach o,$(OSES),\
-    $(foreach a,$(ARCHES),\
-      ROOT_$o.$a ?= \
-        $(Package)-build-$o$(subst i686,i386,$(if \
-	  $(filter-out x86_64,$a),-$a)$(nl))))\
-)
+
+
+ifneq ($(USE_MOCK),)
+  MOCK       ?= mock
+  mockprefix  = $(Package)$(if $(JOB_NAME),-$(dir $(JOB_NAME)))
+
+  $(eval \
+    $(foreach o,$(OSES),\
+      $(foreach a,$(ARCHES),\
+        osdistnd_$o           = $(patsubst el%,%,$(OSDIST_$o))$(nl)           \
+        osdistmajver_$o       = $(word 1,$(subst 0, ,$(OSMACROVER_$o)))$(nl)  \
+        SRCBUILDDIR_$o       := results_$(mockprefix)-build-src$(nl)          \
+        BINBUILDIR_$o.$a     := results_$(mockprefix)-build-$o-$a$(nl)        \
+        mock_chroot_$o.$a     =                                               \
+          -r 'epel-$(word 1,$(osdistmajver_$o))-$a-yahoo'$(nl)                \
+        MOCK_SRPM_ARGS_$o.$a := $(mock_chroot_$o.$a)                          \
+                                  --uniqueext='$(mockprefix)-srpm'            \
+                                  --resultdir='$(SRCBUILDDIR_$o)'$(nl)        \
+        MOCK_RPM_ARGS_$o.$a  := $(mock_chroot_$o.$a)                          \
+                                  --uniqueext='$(mockprefix)-rpm'             \
+                                  --resultdir='$(BINBUILDIR_$o.$a)'$(nl)      \
+      )\
+    )\
+  )
+  PACKAGE_SUB_EXTRA_VARS      += USE_MOCK MOCK MOCK_SRPM_ARGS MOCK_RPM_ARGS
+  PACKAGE_vars                += USE_MOCK MOCK
+  PACKAGE_vars_osarch         += MOCK_SRPM_ARGS MOCK_RPM_ARGS
+  PACKAGE_ENVBUILD_EXTRA_VARS += USE_MOCK MOCK MOCK_SRPM_ARGS MOCK_RPM_ARGS
+else
+  ROOTIMG_rhel4     ?= 4.9-20110216
+  ROOTIMG_rhel5     ?= 5.8-20120221
+  ROOTIMG_rhel6     ?= 6.4-20130325
+
+  $(eval \
+    $(foreach o,$(OSES),\
+      $(foreach a,$(ARCHES),\
+        ROOT_$o.$a ?= \
+          $(Package)-build-$o$(subst i686,i386,$(if \
+          $(filter-out x86_64,$a),-$a)$(nl))))\
+  )
+  PACKAGE_ENVBUILD_EXTRA_VARS += ROOT ROOTIMG
+  PACKAGE_vars_os             += ROOTIMG
+  PACKAGE_vars_osarch         += ROOT
+endif
 
 
 PACKAGE_ENVBUILD_EXTRA_VARS +=		\
 	OSDIST				\
-	ROOT				\
-	ROOTIMG				\
 	KVARIANTS			\
 	KVERREL				\
 	URL
 
 PACKAGE_vars_os +=			\
-	OSDIST				\
-	ROOTIMG
-
-PACKAGE_vars_osarch +=			\
-	ROOT
+	OSDIST

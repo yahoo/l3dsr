@@ -103,13 +103,13 @@ PACKAGE_SUB_EXTRA_VARS +=	\
 	KVERREL			\
 	RELEASE_BUILD_DATE
 
-PACKAGE_vars += 		\
+PACKAGE_vars +=			\
 	KMODTOOL_LIST		\
 	SUBDIRS			\
 	ENVBUILD_MKFILE		\
 	TARBALL_MKFILE
 
-PACKAGE_vars_os += 		\
+PACKAGE_vars_os +=		\
 	PACKAGE			\
 	PKGNAME			\
 	VERSION			\
@@ -119,8 +119,8 @@ PACKAGE_vars_os += 		\
 	KVERREL			\
 	RELEASE_BUILD_DATE
 
-PACKAGE_vars_arch += 		\
+PACKAGE_vars_arch +=		\
 	PKGARCH
 
-PACKAGE_vars_osarch += 		\
+PACKAGE_vars_osarch +=		\
 	KVARIANTS
