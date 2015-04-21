@@ -3,7 +3,7 @@
 
 def_make_args = \
 	USE_MOCK=1 \
-	PLATFORMS='rh$(BUILD_DIST).$(BUILD_ARCH)'
+	PLATFORMS='rh$(BUILD_DIST).$(BUILD_ARCH)' \
 	BUILD_NUMBER='$(BUILD_NUMBER)'
 
 def_deploy_rpms_args = -f -T results_*

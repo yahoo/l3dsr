@@ -18,15 +18,16 @@ tarball_mkvars = \
 	SPECFILE TARBALLFILE \
 	$(PACKAGE_SUB_EXTRA_VARS)
 
-srpmfile           = $(PKGNAME)$(DIST).src.rpm
-rpmfile            = $(PKGNAME)$(DIST).$(PKGARCH).rpm
+PKGNAME_ext        = $(PKGNAME)$(if $(BUILD_NUMBER),.$(BUILD_NUMBER))$(DIST)
+srpmfile           = $(PKGNAME_ext).src.rpm
+rpmfile            = $(PKGNAME_ext).$(PKGARCH).rpm
 
 tarball            = $(TARBALLBUILDDIR)/$(TARBALLFILE)
 starball           = $(SRCBUILDDIR)/SOURCES/$(TARBALLFILE)
 skmodtool_list     = $(addprefix $(SRCBUILDDIR)/SOURCES/,$(KMODTOOL_LIST))
 sspecfile          = $(SRCBUILDDIR)/SPECS/$(SPECFILE)
 
-ifeq ($(USE_MOCK),1)
+ifneq ($(USE_MOCK),)
 ssrpm              = $(SRCBUILDDIR)/$(srpmfile)
 srpm               = $(BINBUILDDIR)/$(srpmfile)
 rpm                = $(BINBUILDDIR)/$(rpmfile)
@@ -34,9 +35,8 @@ else
 ssrpm              = $(SRCBUILDDIR)/SRPMS/$(srpmfile)
 srpm               = $(BINBUILDDIR)/SRPMS/$(srpmfile)
 rpm                = $(BINBUILDDIR)/RPMS/$(PKGARCH)/$(rpmfile)
-endif
-
 rpmtmppath        ?= /var/tmp/rpm-$(LOGNAME)
+endif
 
 iptables_version_words  = $(subst ., ,$(word 2,$(subst -, ,$(EXTENSIONSDIR))))
 iptables_version_maj    = $(word 1,$(iptables_version_words))
@@ -45,6 +45,7 @@ iptables_version_min    = $(word 2,$(iptables_version_words))
 build_defs         = --define 'kmod_name $(PACKAGE)' \
 		     --define 'kmod_driver_version $(VERSION)' \
 		     --define 'kmod_rpm_release $(RELEASE)' \
+		     $(if $(BUILD_NUMBER),--define 'build_number $(BUILD_NUMBER)') \
 		     $(if $(KVARIANTS),--define 'kvariants $(subst ",\",$(KVARIANTS))') \
 		     $(if $(OSMACRO),--define '$(OSMACRO) $(OSMACROVER)') \
 		     $(if $(URL),--define 'url $(URL)') \
@@ -56,7 +57,7 @@ rpm_build_args     = --define '_topdir $(topdir)' \
 		    $(build_defs) \
 		    $(rpm_build_extras)
 
-mock_build_args    = $(build_args) $(mock_build_extras)
+mock_build_args    = $(build_defs) $(mock_build_extras)
 
 clean_files     = $(rpm) $(srpm) $(ssrpm) \
 		  $(tarball) $(starball) \
@@ -72,10 +73,12 @@ srpm: $(ssrpm)
 
 tarball: $(tarball)
 
+ifneq ($(USE_MOCK),)
 $(rpm): topdir = $(PWD)/$(BINBUILDDIR)
+endif
+
 $(rpm): $(srpm)
 	$(call mkdirs_cmd_call,$(BINBUILDDIR))
-	$(call mkrpmdirs_cmd_call,$(BINBUILDDIR))
 ifneq ($(USE_MOCK),)
 	$(MOCK) $(MOCK_RPM_ARGS) \
 	    --define 'dist $(if $(DIST),$(DIST),%{nil})' \
@@ -85,6 +88,7 @@ ifneq ($(USE_MOCK),)
 	    --no-clean \
 	    --rebuild $(ssrpm)
 else
+	$(call mkrpmdirs_cmd_call,$(BINBUILDDIR))
 	rpm -i --define '_topdir $(topdir)' '$(topdir)/SRPMS/$(<F)'
 	rpmbuild -bb \
 	    --define 'dist $(if $(DIST),$(DIST),%{nil})' \
@@ -100,7 +104,7 @@ $(srpm): $(ssrpm)
 $(ssrpm): topdir = $(PWD)/$(SRCBUILDDIR)
 $(ssrpm): $(starball) $(sspecfile) $(skmodtool_list)
 	$(call mkdirs_cmd_call,$(@D))
-ifeq ($(USE_MOCK),1)
+ifneq ($(USE_MOCK),)
 	$(MOCK) $(MOCK_SRPM_ARGS) \
 	    --target='noarch' \
 	    $(mock_build_args) \

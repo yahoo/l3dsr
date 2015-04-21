@@ -101,25 +101,27 @@ ifneq ($(USE_MOCK),)
   $(eval \
     $(foreach o,$(OSES),\
       $(foreach a,$(ARCHES),\
-        osdistnd_$o           = $(patsubst el%,%,$(OSDIST_$o))$(nl)           \
-        osdistmajver_$o       = $(word 1,$(subst 0, ,$(OSMACROVER_$o)))$(nl)  \
-        SRCBUILDDIR_$o       := results_$(mockprefix)-build-src$(nl)          \
-        BINBUILDIR_$o.$a     := results_$(mockprefix)-build-$o-$a$(nl)        \
-        mock_chroot_$o.$a     =                                               \
-          -r 'epel-$(word 1,$(osdistmajver_$o))-$a-yahoo'$(nl)                \
-        MOCK_SRPM_ARGS_$o.$a := $(mock_chroot_$o.$a)                          \
-                                  --uniqueext='$(mockprefix)-srpm'            \
-                                  --resultdir='$(SRCBUILDDIR_$o)'$(nl)        \
-        MOCK_RPM_ARGS_$o.$a  := $(mock_chroot_$o.$a)                          \
-                                  --uniqueext='$(mockprefix)-rpm'             \
-                                  --resultdir='$(BINBUILDIR_$o.$a)'$(nl)      \
+        osdistnd_$o           = $$(patsubst el%,%,$$(OSDIST_$o))$(nl)          \
+        osdistmajver_$o       = $$(word 1,$$(subst 0, ,$$(OSMACROVER_$o)))$(nl)\
+        SRCBUILDDIR_$o       := results_$(mockprefix)-build-src$(nl)           \
+        BINBUILDDIR_$o.$a    := results_$(mockprefix)-build-$o-$a$(nl)         \
+        mock_chroot_$o.$a     =                                                \
+          -r 'epel-$$(word 1,$$(osdistmajver_$o))-$a-yahoo'$(nl)               \
+        MOCK_SRPM_ARGS_$o.$a := $$(mock_chroot_$o.$a)                          \
+                                  --uniqueext='$(mockprefix)-srpm'             \
+                                  --resultdir='$$(SRCBUILDDIR_$o)'$(nl)        \
+        MOCK_RPM_ARGS_$o.$a  := $$(mock_chroot_$o.$a)                          \
+                                  --uniqueext='$(mockprefix)-rpm'              \
+                                  --resultdir='$$(BINBUILDDIR_$o.$a)'$(nl)     \
       )\
     )\
   )
   PACKAGE_SUB_EXTRA_VARS      += USE_MOCK MOCK MOCK_SRPM_ARGS MOCK_RPM_ARGS
-  PACKAGE_vars                += USE_MOCK MOCK
-  PACKAGE_vars_osarch         += MOCK_SRPM_ARGS MOCK_RPM_ARGS
+  PACKAGE_SUB_EXTRA_VARS      += BUILD_NUMBER
   PACKAGE_ENVBUILD_EXTRA_VARS += USE_MOCK MOCK MOCK_SRPM_ARGS MOCK_RPM_ARGS
+  PACKAGE_vars                += USE_MOCK MOCK
+  PACKAGE_vars                += BUILD_NUMBER
+  PACKAGE_vars_osarch         += MOCK_SRPM_ARGS MOCK_RPM_ARGS
 else
   ROOTIMG_rhel4     ?= 4.9-20110216
   ROOTIMG_rhel5     ?= 5.8-20120221

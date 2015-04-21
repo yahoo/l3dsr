@@ -1,3 +1,20 @@
+%if 0%{!?rhel_version:1}
+  %if 0%{?dist:1}
+    %if "%{dist}" == ".EL"
+      %define rhel_version 406
+    %endif
+    %if "%{dist}" == ".el5"
+      %define rhel_version 505
+    %endif
+    %if "%{dist}" == ".el6"
+      %define rhel_version 600
+    %endif
+    %if "%{dist}" == ".el7"
+      %define rhel_version 700
+    %endif
+  %endif
+%endif
+
 %if 0%{!?kmod_name:1}
   %define kmod_name iptables-daddr
 %endif
@@ -102,9 +119,8 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 %define _prefix %{nil}
 Source0: %{name}-%{version}.tar.bz2
 
-%if 0%{?kmodtool_list:1}
-%{expand:%(i=1000;for f in %{kmodtool_list};do echo "Source$i: $f";let i=i+1;done)}
-%endif
+Source50: kmodtool.el5
+Source51: kmodtool.el6
 
 # Create a preinstall and preuninstall scripts as a macro for processing
 # with sed that ensures any existing {ipt,xt}_DADDR module, if present, can

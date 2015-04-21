@@ -29,6 +29,8 @@ ifneq ($(USE_MOCK),)
   rootsh = \
 	$(pound)! /bin/bash\
 	\neval \"\$$@\"
+  krepohost = http://repo.linux.corp.yahoo.com/
+  krepourl  = $(krepohost)rh$(patsubst .%,%,$(OSDIST))_kernels/$(PKGARCH)/
 else
   yinstcmd ?= /usr/local/bin/yinst
   rootcmd  ?= /home/y/bin/yroot
@@ -71,10 +73,10 @@ else
 endif
 
 
-kpkgs = $(if $(findstring "",$(KVARIANTS)),\
-	  kernel-devel-$(KVERREL).$(PKGARCH)) \
-	$(foreach k,$(filter-out "",$(KVARIANTS)),\
-	  kernel-$k-devel-$(KVERREL).$(PKGARCH))
+kpkgs      = $(if $(findstring "",$(KVARIANTS)),\
+	       kernel-devel-$(KVERREL).$(PKGARCH)) \
+	     $(foreach k,$(filter-out "",$(KVARIANTS)),\
+	       kernel-$k-devel-$(KVERREL).$(PKGARCH))
 
 yumpkgs    = module-init-tools rpm-build iptables-devel
 yumpkgsopt =
@@ -104,7 +106,8 @@ prep_buildenv: $(BUILDRUNCMD)
 ifneq ($(USE_MOCK),)
 	$(MOCK) $(MOCK_SRPM_ARGS) --init
 	$(MOCK) $(MOCK_RPM_ARGS)  --init
-	$(MOCK) $(MOCK_RPM_ARGS)  --install $(yumpkgs) $(kpkgs)
+	$(MOCK) $(MOCK_RPM_ARGS)  --install $(yumpkgs) \
+		$(addprefix $(krepourl),$(addsuffix .rpm,$(kpkgs)))
 	-$(MOCK) $(MOCK_RPM_ARGS) --install $(yumpkgsopt)
 else
 	$(call rootyinst,yumbase)
