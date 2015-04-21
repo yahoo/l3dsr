@@ -1,0 +1,104 @@
+#
+# Sub-makefile for creating and prepping yahoo build environments.
+#
+
+include mk/macros.mk
+
+$(call varchklist_call,\
+	PKGARCH \
+	OSMACRO OSMACROVER OSDIST \
+	ROOTIMG ROOT \
+	BUILDRUNCMD)
+
+
+ifeq ($(PKGARCH),i686)
+rootarch = --i386
+endif
+
+yinstcmd ?= /usr/local/bin/yinst
+rootcmd  ?= /home/y/bin/yroot
+
+BINBUILDRUNCMD = $(BUILDRUNCMD) '$(ROOT)'
+
+rootsh = \
+	$(pound)! /bin/bash\
+	\nrootname=\"\$$1\"\
+	\nshift\
+	\nexec $(rootcmd) \"\$$rootname\" --cmd \"\$$@\"
+
+rootyinst = $(BINBUILDRUNCMD) \
+	       "$(yinstcmd) ls '$(1)' > /dev/null || \
+		 $(yinstcmd) i '$(1)'"
+
+rootkrpmbase = $(BINBUILDRUNCMD) \
+		  "rpm -q '$(1)' > /dev/null || \
+		    sudo rpm -i --oldpackage '$(2)/$(1).rpm'"
+
+rootyum   = $(BINBUILDRUNCMD) \
+	       "rpm -q '$(1)' > /dev/null || \
+		 sudo yum install -y $(2) '$(1)'"
+
+rootyumu  = $(call rootyum,$(1),--enablerepo=updates,y-updates)
+
+ifeq ($(OSMACRO),rhel_version)
+  OSDISTMAJVER=$(word 1,$(subst 0, ,$(OSMACROVER)))
+  ifneq (,$(findstring YAHOO,$(OSDIST)))
+    kloc = $(OSDISTMAJVER).y-updates$(patsubst %,-%,$(subst i686,,$(PKGARCH)))
+  else
+    ifeq ($(OSDISTMAJVER),6)
+      rootkrpm  = $(call rootkrpmbase,$(1),http://repo.linux.corp.yahoo.com/rhel6_kernels/x86_64)
+    else
+      kloc      = $(OSDISTMAJVER).updates$(patsubst %,-%,$(subst i686,,$(PKGARCH)))
+      krepourl := $(shell $(yinstcmd) which-dist)/yum/properties/ylinux/$(kloc)
+      rootkrpm  = $(call rootkrpmbase,$(1),$(krepourl))
+    endif
+  endif
+endif
+
+
+kpkgs = $(if $(findstring "",$(KVARIANTS)),\
+	  kernel-devel-$(KVERREL).$(PKGARCH)) \
+	$(foreach k,$(filter-out "",$(KVARIANTS)),\
+	  kernel-$k-devel-$(KVERREL).$(PKGARCH))
+
+yumpkgs    = rpm-build
+yumpkgsopt =
+
+ifeq ($(OSMACRO),rhel_version)
+  ifeq ($(OSMACROVER),505)
+    yumpkgs += redhat-rpm-config
+  endif
+  ifeq ($(OSMACROVER),600)
+    yumpkgs += redhat-rpm-config
+    yumpkgsopt += kabi-whitelists
+  endif
+endif
+
+clean_files     = $(BUILDRUNCMD)
+clobber_files   = $(clean_files)
+distclean_files = $(clobber_files)
+
+
+all: create_buildenv prep_buildenv
+
+prep_buildenv: $(BUILDRUNCMD)
+	$(call rootyinst,yumbase)
+	$(foreach r,$(yumpkgs),$(call rootyum,$r) || \
+		{ echo >&2 "Build requires '$r' rpm."; exit 1; }$(nl))
+	$(foreach r,$(yumpkgsopt),$(call rootyum,$r) || exit 0$(nl))
+	$(foreach r,$(kpkgs),$(call rootkrpm,$r)$(nl))
+
+create_buildenv:
+	$(rootcmd) --start '$(ROOT)' > /dev/null 2>&1 || \
+	  $(rootcmd) --create '$(ROOT)' $(rootarch) $(ROOTIMG)
+
+$(BUILDRUNCMD):
+	rm -f -- "$@"
+	echo -e "$(rootsh)" > "$@"
+	chmod 0555 -- "$@"
+
+clean clobber distclean::
+	$(call scrub_files_cmd_call,$($@_files))
+
+
+.PHONY: all prep_buildenv create_buildenv prep_srctree clean clobber distclean

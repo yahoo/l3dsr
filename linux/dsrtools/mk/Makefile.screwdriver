@@ -1,0 +1,36 @@
+SRCTOP = .
+YAHOO_CFG=/home/y/share/yahoo_cfg
+BUILD_PACKAGE_DEPENDENCIES = ./additive.yidf
+
+-include $(YAHOO_CFG)/screwdriver/Make.rules
+
+make_screwdriver: dist
+
+dist:
+	@echo =============================
+	find build* -name \*.rpm -type f -exec ls -l {} \;
+	@echo =============================
+
+	#cp src/TOPDIR/SRPMS/* src/TOPDIR/RPMS/* $(AUTO_PUBLISH_DIR)/
+
+distinstallcmd   = dist_install -os rhel-4.x -batch \
+		       -identity /home/y/conf/screwdriver/dist/distkey \
+		       -headless -branch quarantine -nomail $(1)$(nl)
+
+distsetbranchcmd = dist_setbranch -batch -nomail -os rhel-3.x \
+		       -identity /home/y/conf/screwdriver/dist/distkey \
+		       -headless none $(subst .tgz,,$(notdir $(1))) && \
+		   dist_setbranch -batch -nomail -os rhel-5.x \
+		       -identity /home/y/conf/screwdriver/dist/distkey \
+		       -headless none $(subst .tgz,,$(notdir $(1)))$(nl)
+
+publish_screwdriver:
+	@echo "Nothing to do now."
+
+publish_really:
+	$(foreach p,$(wildcard pkg_yinst/*.tgz),$(call distinstallcmd,$p))
+
+test:
+	@echo "No tests."
+
+.PHONY: screwdriver dist publish publish_really test

@@ -1,0 +1,3 @@
+# These packages are required for local yinst create (included in screwdriver env already)
+add yinst pkg auto_increment_version
+add yinst pkg gitzip

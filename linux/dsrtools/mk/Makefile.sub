@@ -1,0 +1,114 @@
+#
+# Sub-makefile that controls all the build from source steps for a given RPM.
+#
+
+include mk/macros.mk
+
+$(call varchklist_call,\
+	TARBALL_MKFILE \
+	PACKAGE VERSION RELEASE \
+	SPECFILE TARBALLFILE \
+	$(PACKAGE_SUB_EXTRA_VARS) \
+	PKGNAME PKGARCH)
+
+
+tarball_mkvars = \
+	PACKAGE VERSION RELEASE \
+	OSMACRO OSMACROVER \
+	SPECFILE TARBALLFILE \
+	$(PACKAGE_SUB_EXTRA_VARS)
+
+
+srpmfile           = $(PKGNAME)$(DIST).src.rpm
+rpmfile            = $(PKGNAME)$(DIST).$(PKGARCH).rpm
+
+tarball            = $(TARBALLBUILDDIR)/$(TARBALLFILE)
+starball           = $(SRCBUILDDIR)/SOURCES/$(TARBALLFILE)
+sspecfile          = $(SRCBUILDDIR)/SPECS/$(SPECFILE)
+ssrpm              = $(SRCBUILDDIR)/SRPMS/$(srpmfile)
+srpm               = $(BINBUILDDIR)/SRPMS/$(srpmfile)
+rpm                = $(BINBUILDDIR)/RPMS/$(PKGARCH)/$(rpmfile)
+
+rpmtmppath        ?= /var/tmp/rpm-$(LOGNAME)
+
+dsrtools_version_words  = $(subst ., ,$(word 2,$(subst -, ,$(EXTENSIONSDIR))))
+dsrtools_version_maj    = $(word 1,$(dsrtools_version_words))
+dsrtools_version_min    = $(word 2,$(dsrtools_version_words))
+
+rpmbuild_args      = --define '_topdir $(topdir)' \
+		     --define 'dist $(if $(DIST),$(DIST),%{nil})' \
+		     --define '_tmppath $(rpmtmppath)' \
+		     --define 'pkg_name $(PACKAGE)' \
+		     --define 'pkg_version $(VERSION)' \
+		     --define 'pkg_release $(RELEASE)' \
+		     $(if $(OSMACRO),--define '$(OSMACRO) $(OSMACROVER)') \
+		     $(if $(URL),--define 'url $(URL)') \
+		     $(rpmbuild_extras)
+
+clean_files     =  $(rpm) $(srpm) $(ssrpm) \
+		   $(tarball) $(starball) \
+		   $(sspecfile)
+clobber_files   = $(BINBUILDDIR) $(SRCBUILDDIR) $(TARBALLBUILDDIR)
+distclean_files = $(clobber_files)
+
+all: rpm
+
+rpm: $(rpm)
+
+srpm: $(ssrpm)
+
+tarball: $(tarball)
+
+$(rpm): topdir = $(PWD)/$(BINBUILDDIR)
+$(rpm): $(srpm)
+	$(call mkdirs_cmd_call,$(BINBUILDDIR))
+	$(call mkrpmdirs_cmd_call,$(BINBUILDDIR))
+	rpm -i --define '_topdir $(topdir)' '$(topdir)/SRPMS/$(<F)'
+	rpmbuild -bb \
+	    --target='$(PKGARCH)' \
+	    $(rpmbuild_args) \
+	    '$(topdir)/SPECS/$(SPECFILE)'
+
+$(srpm): $(ssrpm)
+	$(call copy_file_cmd_call,$<,$@)
+
+$(ssrpm): topdir = $(PWD)/$(SRCBUILDDIR)
+$(ssrpm): $(starball) $(sspecfile)
+	$(call mkdirs_cmd_call,$(@D))
+	rpmbuild -bs \
+	    --target='noarch' \
+	    $(rpmbuild_args) \
+	    '$(topdir)/SPECS/$(SPECFILE)'
+
+$(starball): $(tarball)
+	$(call copy_file_cmd_call,$<,$@)
+
+$(sspecfile): $(SPECFILE)
+	$(call copy_file_cmd_call,$<,$@)
+
+$(SRCBUILDDIR)/SOURCES/%: %
+	$(call copy_file_cmd_call,$<,$@)
+
+$(tarball):
+	$(call mkdirs_cmd_call,$(TARBALLBUILDDIR))
+	$(MAKE) \
+	    -I '$(PWD)' \
+	    -f '$(PWD)/$(TARBALL_MKFILE)' \
+	    -C '$(TARBALLBUILDDIR)' \
+	    $(call mkargs_call,$(tarball_mkvars)) \
+	    '$(TARBALLFILE)'
+
+clean clobber distclean::
+	[ ! -d '$(TARBALLBUILDDIR)' ] || \
+	  $(MAKE) \
+	    -I '$(PWD)' \
+	    -f '$(PWD)/$(TARBALL_MKFILE)' \
+	    -C '$(TARBALLBUILDDIR)' \
+	    $(call mkargs_call,$(tarball_mkvars)) \
+	    '$@'
+
+clean clobber distclean::
+	$(call scrub_files_cmd_call,$($@_files))
+
+
+.PHONY: all rpm srpm tarball clean clobber distclean
