@@ -101,7 +101,10 @@ endif
 $(srpm): $(ssrpm)
 	$(call copy_file_cmd_call,$<,$@)
 
+ifneq ($(USE_MOCK),)
 $(ssrpm): topdir = $(PWD)/$(SRCBUILDDIR)
+endif
+
 $(ssrpm): $(starball) $(sspecfile) $(skmodtool_list)
 	$(call mkdirs_cmd_call,$(@D))
 ifneq ($(USE_MOCK),)

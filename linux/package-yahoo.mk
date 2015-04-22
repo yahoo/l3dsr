@@ -93,10 +93,9 @@ Kverrel_rhel6   = 2.6.32-71.el6
 Kverrel_fc17    = 2.6.32-71.fc17
 
 
-
 ifneq ($(USE_MOCK),)
   MOCK       ?= mock
-  mockprefix  = $(Package)$(if $(JOB_NAME),-$(dir $(JOB_NAME)))
+  mockprefix  = $(Package)
 
   $(eval \
     $(foreach o,$(OSES),\

@@ -119,11 +119,11 @@ endif
 
 create_buildenv:
 ifneq ($(USE_MOCK),)
-	$(rootcmd) --start '$(ROOT)' > /dev/null 2>&1 || \
-	  $(rootcmd) --create '$(ROOT)' $(rootarch) $(ROOTIMG)
-else
 	$(MOCK) $(MOCK_SRPM_ARGS) --scrub=all
 	$(MOCK) $(MOCK_RPM_ARGS)  --scrub=all
+else
+	$(rootcmd) --start '$(ROOT)' > /dev/null 2>&1 || \
+	  $(rootcmd) --create '$(ROOT)' $(rootarch) $(ROOTIMG)
 endif
 
 $(BUILDRUNCMD):
