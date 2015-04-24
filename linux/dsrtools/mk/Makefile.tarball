@@ -38,7 +38,7 @@ $(TARBALLFILE): $(prepsourcescookie)
 
 $(prepsourcescookie): $(addprefix ../,$(tarsrcfiles))
 	$(call scrub_files_cmd_call,$(tardestdir))
-	$(call mkdirs_cmd_call,$(tardestdir))
+	mkdir -p -- '$(tardestdir)'
 	tar -c -C .. $(tarsrcfiles) | tar -x -C '$(tardestdir)'
 	touch -- '$(prepsourcescookie)'
 

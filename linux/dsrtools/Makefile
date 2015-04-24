@@ -74,7 +74,7 @@ do_envbuild_mk = \
 sub_mkvars = \
 	PACKAGE PKGNAME \
 	VERSION RELEASE DIST \
-	SPECFILE PKGARCH \
+	SPECFILE PKGARCH KVARIANTS \
 	OSMACRO OSMACROVER \
 	TARBALLBUILDDIR TARBALLFILE \
 	BUILDROOT SRCBUILDDIR BINBUILDDIR \
@@ -89,18 +89,6 @@ do_submks = \
 	        $(MAKE) \
 		  -C '$(BUILDROOT)' \
 		  -f mk/Makefile.sub \
-		  $(call mkmkargs_call,$p,$(sub_mkvars)) \
-		  $(1))$(nl)\
-	)
-
-do_tests = \
-	$(foreach p,$(PLATFORMS),\
-	  [ ! -x '$(BUILDRUNCMD)' ] || \
-	    $(BUILDRUNCMD) '$(ROOT_$p)' \
-	      $(call shdq_call,\
-	        $(MAKE) \
-		  -C t \
-		  -f Makefile \
 		  $(call mkmkargs_call,$p,$(sub_mkvars)) \
 		  $(1))$(nl)\
 	)
@@ -120,17 +108,6 @@ $(createenv_cookie):
 	+$(call do_envbuild_mk,create_buildenv)
 	@touch -- '$@'
 
-test: rpms
-	+$(call do_tests,$(patsubst %s,%,$@))
-
-screwdriver:
-	$(MAKE) NATIVE=1 distclean
-	$(MAKE) NATIVE=1 all
-	$(MAKE) -f mk/Makefile.screwdriver make_screwdriver
-
-publish: screwdriver
-	$(MAKE) -f mk/Makefile.screwdriver publish_screwdriver
-
 clean clobber distclean::
 	+$(call do_submks,$@)
 	+$(call do_envbuild_mk,$@)
@@ -138,5 +115,7 @@ clean clobber distclean::
 clean clobber distclean::
 	$(call scrub_files_cmd_call,$($@_files))
 
+$(NATIVEPKGFILE):
+	./config-native $(CONFIG_ARGS) > '$@'
 
-.PHONY: all tarball rpms srpms create_buildenvs prep_buildenvs clean clobber distclean screwdriver publish
+.PHONY: all tarball rpms srpms create_buildenvs prep_buildenvs clean clobber distclean

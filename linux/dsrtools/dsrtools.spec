@@ -1,22 +1,42 @@
+%if 0%{!?rhel_version:1}
+  %if 0%{?dist:1}
+    %if "%{dist}" == ".el5"
+      %define rhel_version 505
+    %endif
+    %if "%{dist}" == ".el6"
+      %define rhel_version 600
+    %endif
+    %if "%{dist}" == ".el7"
+      %define rhel_version 700
+    %endif
+  %endif
+%endif
+
 %if 0%{!?pkg_name:1}
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.0
+  %define pkg_version 1.0.0
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20150312
+  %define pkg_release 20150420
 %endif
 
 Summary: DSR tools
 Name: %{pkg_name}
 Version: %{pkg_version}
-Release: %{pkg_release}%{?dist}
+Release: %{pkg_release}%{?build_number:.%{build_number}}%{?dist}
 License: Proprietary
 Group: System Environment/System
 URL: http://twiki.corp.yahoo.com/view/Platform/Dsrtools
 Vendor: Yahoo! Inc.
 Packager: Wayne Badger <badger@yahoo-inc.com>
+
+%define with_systemd  %{?_without_systemd:0}%{?!_without_systemd:1}
+
+%if 0%{?rhel_version} < 700
+%define with_systemd 0
+%endif
 
 %define cmdfile dsrctl
 %define rcfile dsr
@@ -28,6 +48,11 @@ Packager: Wayne Badger <badger@yahoo-inc.com>
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch: noarch
 Requires: ksh iptables iproute iptables-daddr kmod-iptables-daddr
+
+%if %{with_systemd}
+Requires: systemd
+BuildRequires: systemd
+%endif
 
 
 Source: %{name}-%{version}.tar.bz2
@@ -42,17 +67,17 @@ displaying status information.
 %setup -q
 
 %build
-%__make -C src PACKAGE=%{name} VERSION=%{version} RELEASE=%{release} DIST=%{?dist} INSTDIR='%{buildroot}' all
+%__make -C src PACKAGE=%{name} VERSION=%{version} RELEASE=%{release} DIST=%{?dist} INSTDIR='%{buildroot}' WITHSYSTEMD=%{with_systemd} all
 
 %install
 %__rm -rf -- '%{buildroot}'
-%makeinstall -C src PACKAGE=%{name} VERSION=%{version} RELEASE=%{release} DIST=%{?dist} INSTDIR='%{buildroot}'
+%makeinstall -C src PACKAGE=%{name} VERSION=%{version} RELEASE=%{release} DIST=%{?dist} INSTDIR='%{buildroot}' WITHSYSTEMD=%{with_systemd}
 
 %clean
 %__rm -rf -- '%{buildroot}'
 
 %post
-%if 0%{?rhel_version} >= 700
+%if %{with_systemd}
   systemctl start %{dsrservice}
   systemctl enable %{dsrservice} || :
 %else
@@ -62,7 +87,7 @@ displaying status information.
 
 %preun
 [ $1 = 0 ] || exit 0
-%if 0%{?rhel_version} >= 700
+%if %{with_systemd}
   systemctl stop %{dsrservice} || :
   systemctl --no-reload disable %{dsrservice} || :
 %else
@@ -76,7 +101,7 @@ displaying status information.
 %dir %{_sysconfdir}/dsr.d
 %{_sysconfdir}/dsr.d/%{dsrreadme}
 %{_sbindir}/%{cmdfile}
-%if 0%{?rhel_version} >= 700
+%if %{with_systemd}
   %{_unitdir}/%{dsrservice}
 %else
   %{_initrddir}/%{rcfile}
@@ -88,5 +113,5 @@ displaying status information.
 
 
 %changelog
-* Thu Mar 12 2015 Wayne Badger <badger@yahoo-inc.com> 1.0-20150312
+* Mon Apr 20 2015 Wayne Badger <badger@yahoo-inc.com> 1.0.0-20150420
 - Initial release.

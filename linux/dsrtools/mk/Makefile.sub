@@ -18,36 +18,42 @@ tarball_mkvars = \
 	SPECFILE TARBALLFILE \
 	$(PACKAGE_SUB_EXTRA_VARS)
 
-
-srpmfile           = $(PKGNAME)$(DIST).src.rpm
-rpmfile            = $(PKGNAME)$(DIST).$(PKGARCH).rpm
+PKGNAME_ext        = $(PKGNAME)$(if $(BUILD_NUMBER),.$(BUILD_NUMBER))$(DIST)
+srpmfile           = $(PKGNAME_ext).src.rpm
+rpmfile            = $(PKGNAME_ext).$(PKGARCH).rpm
 
 tarball            = $(TARBALLBUILDDIR)/$(TARBALLFILE)
 starball           = $(SRCBUILDDIR)/SOURCES/$(TARBALLFILE)
 sspecfile          = $(SRCBUILDDIR)/SPECS/$(SPECFILE)
+
+ifneq ($(USE_MOCK),)
+ssrpm              = $(SRCBUILDDIR)/$(srpmfile)
+srpm               = $(BINBUILDDIR)/$(srpmfile)
+rpm                = $(BINBUILDDIR)/$(rpmfile)
+else
 ssrpm              = $(SRCBUILDDIR)/SRPMS/$(srpmfile)
 srpm               = $(BINBUILDDIR)/SRPMS/$(srpmfile)
 rpm                = $(BINBUILDDIR)/RPMS/$(PKGARCH)/$(rpmfile)
-
 rpmtmppath        ?= /var/tmp/rpm-$(LOGNAME)
+endif
 
-dsrtools_version_words  = $(subst ., ,$(word 2,$(subst -, ,$(EXTENSIONSDIR))))
-dsrtools_version_maj    = $(word 1,$(dsrtools_version_words))
-dsrtools_version_min    = $(word 2,$(dsrtools_version_words))
-
-rpmbuild_args      = --define '_topdir $(topdir)' \
-		     --define 'dist $(if $(DIST),$(DIST),%{nil})' \
-		     --define '_tmppath $(rpmtmppath)' \
-		     --define 'pkg_name $(PACKAGE)' \
-		     --define 'pkg_version $(VERSION)' \
-		     --define 'pkg_release $(RELEASE)' \
+build_defs         = --define 'kmod_name $(PACKAGE)' \
+		     --define 'kmod_driver_version $(VERSION)' \
+		     --define 'kmod_rpm_release $(RELEASE)' \
+		     $(if $(BUILD_NUMBER),--define 'build_number $(BUILD_NUMBER)') \
 		     $(if $(OSMACRO),--define '$(OSMACRO) $(OSMACROVER)') \
-		     $(if $(URL),--define 'url $(URL)') \
-		     $(rpmbuild_extras)
+		     $(if $(URL),--define 'url $(URL)')
 
-clean_files     =  $(rpm) $(srpm) $(ssrpm) \
-		   $(tarball) $(starball) \
-		   $(sspecfile)
+rpm_build_args     = --define '_topdir $(topdir)' \
+		     --define '_tmppath $(rpmtmppath)' \
+		    $(build_defs) \
+		    $(rpm_build_extras)
+
+mock_build_args    = $(build_defs) $(mock_build_extras)
+
+clean_files     = $(rpm) $(srpm) $(ssrpm) \
+		  $(tarball) $(starball) \
+		  $(sspecfile)
 clobber_files   = $(BINBUILDDIR) $(SRCBUILDDIR) $(TARBALLBUILDDIR)
 distclean_files = $(clobber_files)
 
@@ -59,26 +65,53 @@ srpm: $(ssrpm)
 
 tarball: $(tarball)
 
+ifneq ($(USE_MOCK),)
 $(rpm): topdir = $(PWD)/$(BINBUILDDIR)
+endif
+
 $(rpm): $(srpm)
 	$(call mkdirs_cmd_call,$(BINBUILDDIR))
+ifneq ($(USE_MOCK),)
+	$(MOCK) $(MOCK_RPM_ARGS) \
+	    --define 'dist $(if $(DIST),$(DIST),%{nil})' \
+	    --target='$(PKGARCH)' \
+	    $(mock_build_args) \
+	    $(without_kabichk) \
+	    --no-clean \
+	    --rebuild $(ssrpm)
+else
 	$(call mkrpmdirs_cmd_call,$(BINBUILDDIR))
 	rpm -i --define '_topdir $(topdir)' '$(topdir)/SRPMS/$(<F)'
 	rpmbuild -bb \
+	    --define 'dist $(if $(DIST),$(DIST),%{nil})' \
 	    --target='$(PKGARCH)' \
-	    $(rpmbuild_args) \
+	    $(rpm_build_args) \
+	    $(without_kabichk) \
 	    '$(topdir)/SPECS/$(SPECFILE)'
+endif
 
 $(srpm): $(ssrpm)
 	$(call copy_file_cmd_call,$<,$@)
 
+ifneq ($(USE_MOCK),)
 $(ssrpm): topdir = $(PWD)/$(SRCBUILDDIR)
+endif
+
 $(ssrpm): $(starball) $(sspecfile)
 	$(call mkdirs_cmd_call,$(@D))
+ifneq ($(USE_MOCK),)
+	$(MOCK) $(MOCK_SRPM_ARGS) \
+	    --target='noarch' \
+	    $(mock_build_args) \
+	    --buildsrpm \
+	    --spec '$(sspecfile)' \
+	    --sources '$(SRCBUILDDIR)/SOURCES'
+else
 	rpmbuild -bs \
 	    --target='noarch' \
-	    $(rpmbuild_args) \
+	    $(rpm_build_args) \
 	    '$(topdir)/SPECS/$(SPECFILE)'
+endif
 
 $(starball): $(tarball)
 	$(call copy_file_cmd_call,$<,$@)

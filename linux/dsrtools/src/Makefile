@@ -3,8 +3,6 @@ include ../mk/macros.mk
 $(call varchklist_call,\
 	DIST \
 	INSTDIR \
-	OSMACRO \
-	OSMACROVER \
 	PACKAGE \
 	RELEASE \
 	VERSION)
@@ -28,17 +26,12 @@ instman8file  = $(INSTDIR)/usr/share/man/man8/$(man8file)
 instconfd =  $(INSTDIR)/etc/$(confdir)
 instreadme =  $(INSTDIR)/etc/$(confdir)/$(readme)
 
-nonsystemdversions = .el5 .el6
-
-ifeq ($(OSMACRO),rhel_version)
-  ifneq ($(filter $(DIST),$(nonsystemdversions)),)
-    servicefile=
-    instservicefile=
-  endif
-  ifeq ($(filter $(DIST),$(nonsystemdversions)),)
-    rcfile=
-    instrcfile=
-  endif
+ifeq ($(WITHSYSTEMD),1)
+  rcfile=
+  instrcfile=
+else
+  servicefile=
+  instservicefile=
 endif
 
 

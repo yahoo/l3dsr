@@ -29,10 +29,10 @@
 include mk/macros.mk
 
 Package		 = dsrtools
-Version		 = 1.0
-Release		 = 20150312
+Version		 = 1.0.0
+Release		 = 20150420
 Dist		 =
-Subdirs		 = src t
+Subdirs		 = src
 
 Todays_Date := $(shell date '+%Y%m%d')
 
@@ -49,14 +49,7 @@ ifeq ($(PKGFILE),)
   do_native = 1
 endif
 
-ifneq ($(do_native),)
-  ifeq ($(wildcard $(NATIVEPKGFILE)),)
-    $(shell ./config-native $(CONFIG_ARGS) > $(NATIVEPKGFILE))
-  endif
-  include $(NATIVEPKGFILE)
-else
-  include $(PKGFILE)
-endif
+sinclude $(if $(do_native),$(NATIVEPKGFILE),$(PKGFILE))
 
 
 ifneq ($(PLATFORMS),)
@@ -94,7 +87,7 @@ PACKAGE_SUB_EXTRA_VARS +=	\
 	TARBALL_MKFILE		\
 	RELEASE_BUILD_DATE
 
-PACKAGE_vars +=		\
+PACKAGE_vars +=			\
 	SUBDIRS			\
 	ENVBUILD_MKFILE		\
 	TARBALL_MKFILE
@@ -110,5 +103,3 @@ PACKAGE_vars_os +=		\
 
 PACKAGE_vars_arch +=		\
 	PKGARCH
-
-PACKAGE_vars_osarch +=
