@@ -58,7 +58,7 @@ BuildRequires: systemd
 Source: %{name}-%{version}.tar.bz2
 
 %description
-dsrtools is a package the manages DSRs (direct server return machines) by
+dsrtools is a package that manages DSR (Direct Server Return) machines by
 initializing DSR for them during the boot sequence.  Both L3DSR and L2DSR are
 supported.  The dsrctl command handles configuration and startup as well as
 displaying status information.

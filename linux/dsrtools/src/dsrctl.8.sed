@@ -14,7 +14,7 @@ dsrctl \- control L3DSR/L2DSR configurations
 .PP
 The \fBdsrctl\fP command controls both L3DSR and L2DSR installations based
 on configurations found in /etc/dsr.d.
-PP
+.PP
 L3DSR typically involves a load balancer (LB) or VIP that receives packets from the
 client.  The LB sets the DSCP field in the TCP packet that corresponds to the
 LB and changes the destination IP address in the packet to the real server
