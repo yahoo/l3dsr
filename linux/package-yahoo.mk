@@ -30,7 +30,8 @@ ENVBUILD_MKFILE    = mk/Makefile.ybuild
 
 all_platforms	= rhel4.x86_64 rhel4.i686 \
 		  rhel5.x86_64 rhel5.i686 \
-		  rhel6.x86_64
+		  rhel6.x86_64 \
+		  rhel7.x86_64
 
 
 ifeq ($(PLATFORMS),)
@@ -69,6 +70,10 @@ OSMACRO_rhel6       = rhel_version
 OSMACROVER_rhel6    = 600
 OSDIST_rhel6        = .el6
 
+OSMACRO_rhel7       = rhel_version
+OSMACROVER_rhel7    = 700
+OSDIST_rhel7        = .el7
+
 OSMACRO_fc17        = fedora
 OSMACROVER_fc17     = 17
 OSDIST_fc17         = .fc17
@@ -78,18 +83,20 @@ KVARIANTS_rhel4.i686     ?= "" smp hugemem xenU
 KVARIANTS_rhel5.x86_64   ?= "" xen
 KVARIANTS_rhel5.i686     ?= "" xen PAE
 KVARIANTS_rhel6.x86_64   ?= ""
-KVARIANTS_rhel6.i686     ?= ""   
+KVARIANTS_rhel7.x86_64   ?= ""
 KVARIANTS_fc17.x86_64    ?= ""
 KVARIANTS_fc17.i686      ?= ""
 
 Dist_rhel4      = .EL
 Dist_rhel5      = .el5
 Dist_rhel6      = .el6
+Dist_rhel7      = .el7
 Dist_fc17       = .fc17
 
 Kverrel_rhel4   = 2.6.9-78.EL
 Kverrel_rhel5   = 2.6.18-53.el5
 Kverrel_rhel6   = 2.6.32-71.el6
+Kverrel_rhel7   = 3.10.0-123.el7
 Kverrel_fc17    = 2.6.32-71.fc17
 
 

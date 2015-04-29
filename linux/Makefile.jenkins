@@ -1,9 +1,9 @@
 # Start a build from Jenkins.
-# Jenkins passes in BUILD_DIST, BUILD_ARCH, and BUILD_NUMBER.
+# Jenkins passes in BUILD_OS, BUILD_ARCH, and BUILD_NUMBER.
 
 def_make_args = \
 	USE_MOCK=1 \
-	PLATFORMS='rh$(BUILD_DIST).$(BUILD_ARCH)' \
+	PLATFORMS='$(BUILD_OS).$(BUILD_ARCH)' \
 	BUILD_NUMBER='$(BUILD_NUMBER)'
 
 def_deploy_rpms_args = -f -T results_*
@@ -11,7 +11,7 @@ def_deploy_rpms_args = -f -T results_*
 clean_files =
 clobber_files = $(clean_files) \
 	$(wildcard results_*-build-src) \
-	$(wildcard results_*-build-$(BUILD_DIST)-$(BUILD_ARCH))
+	$(wildcard results_*-build-$(BUILD_OS)-$(BUILD_ARCH))
 distclean_files = $(clobber_files)
 
 commit-%: BUILD_NUMBER:=$(if $(BUILD_NUMBER),0.$(BUILD_NUMBER))
@@ -24,7 +24,7 @@ all:
 
 publish: all
 	./deploy-rpms $(def_deploy_rpms_args) \
-		-T $(wildcard results_*-build-$(BUILD_DIST)-$(BUILD_ARCH))
+		-T $(wildcard results_*-build-$(BUILD_OS)-$(BUILD_ARCH))
 	./deploy-rpms $(def_deploy_rpms_args) \
 		-T $(wildcard results_*-build-src)
 
