@@ -6,7 +6,7 @@ def_make_args = \
 	PLATFORMS='$(BUILD_OS).$(BUILD_ARCH)' \
 	BUILD_NUMBER='$(BUILD_NUMBER)'
 
-def_deploy_rpms_args = -f -T results_*
+def_deploy_rpms_args = -f
 
 clean_files =
 clobber_files = $(clean_files) \
@@ -23,10 +23,10 @@ all:
 	$(MAKE) $(def_make_args) $@
 
 publish: all
-	./deploy-rpms $(def_deploy_rpms_args) \
-		-T $(wildcard results_*-build-$(BUILD_OS)-$(BUILD_ARCH))
-	./deploy-rpms $(def_deploy_rpms_args) \
-		-T $(wildcard results_*-build-src)
+	./deploy-rpms \
+		$(def_deploy_rpms_args) \
+		$(filter-out %.src.rpm,$(wildcard $(results_*-build-$(BUILD_OS)-$(BUILD_ARCH))/*.rpm)) \
+		$(wildcard results_*-build-src/*.src.rpm)
 
 clean clobber distclean:
 	$(MAKE) $(def_make_args) $@
