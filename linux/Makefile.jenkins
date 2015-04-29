@@ -25,7 +25,7 @@ all:
 publish: all
 	./deploy-rpms \
 		$(def_deploy_rpms_args) \
-		$(filter-out %.src.rpm,$(wildcard $(results_*-build-$(BUILD_OS)-$(BUILD_ARCH))/*.rpm)) \
+		$(filter-out %.src.rpm,$(wildcard results_*-build-$(BUILD_OS)-$(BUILD_ARCH)/*.rpm)) \
 		$(wildcard results_*-build-src/*.src.rpm)
 
 clean clobber distclean:
