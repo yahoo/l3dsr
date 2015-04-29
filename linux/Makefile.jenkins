@@ -12,8 +12,8 @@ def_deploy_rpms_args = -f
 
 clean_files =
 clobber_files = $(clean_files) \
-	$(wildcard results_*-build-src) \
-	$(wildcard results_*-build-$(BUILD_OS)-$(BUILD_ARCH))
+	$(wildcard results_$(Package)-build-src) \
+	$(wildcard results_$(Package)-build-$(BUILD_OS)-$(BUILD_ARCH))
 distclean_files = $(clobber_files)
 
 commit-%: BUILD_NUMBER:=$(if $(BUILD_NUMBER),0.$(BUILD_NUMBER))
