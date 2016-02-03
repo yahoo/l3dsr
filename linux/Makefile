@@ -1,121 +1,51 @@
 #
-# Make a package's RPMs.
+# Main makefile for building iptables-daddr and its packages.
+#
+#  To build the source:
+#    $ make
+#
+#  To build the packages, specify the package platform with the "spkg" or
+#  "pkgs" targets as given in "PPS".  For example:
+#    $ make rpm-pkgs
+#
+#  See the README for further examples.
 #
 
-include mk/macros.mk package.mk
+include macros.mk package.mk
 
+MAKEFLAGS += -I..
 
-BUILDROOT          ?= $(PWD)
-BUILDRUNCMD         = $(BUILDROOT)/runbuildenv
+PPS += rpm mock
 
 $(eval \
-  $(foreach o,$(OSES),\
-    TARBALLFILE_$o     ?= $(PACKAGE_$o)-$(VERSION_$o).tar.bz2$(nl)\
-    TARBALLBUILDDIR_$o ?= build-tarball$(nl)\
-    SRCBUILDDIR_$o     ?= build-src$(nl)\
-    $(foreach a,$(ARCHES),\
-      BINBUILDDIR_$o.$a ?= build-$o-$a$(nl)))\
+  $(foreach pp,$(PPS),\
+    $(pp)-%: PP=$(pp)$(nl)\
+    $(pp)-%: %;$(nl))\
 )
 
-MAKE_vars =			\
-	BUILDROOT		\
-	BUILDRUNCMD		\
-	$(PACKAGE_vars)
+def_kmoddir ?= kmod-xt
+def_lmoddir ?= extensions-1.4
 
-MAKE_vars_os =			\
-	OSMACRO			\
-	OSMACROVER		\
-	TARBALLFILE		\
-	TARBALLBUILDDIR		\
-	SRCBUILDDIR		\
-	$(PACKAGE_vars_os)
 
-MAKE_vars_arch =		\
-	$(PACKAGE_vars_arch)
+all: src
 
-MAKE_vars_osarch =		\
-	BINBUILDDIR		\
-	$(PACKAGE_vars_osarch)
+src:
+	$(MAKE) -C /lib/modules/`uname -r`/build \
+		M='$(PWD)/$(def_kmoddir)'
+	$(MAKE) -C '$(def_lmoddir)'
 
-createenv_cookie = .createenv-cookie
-prepenv_cookie   = .prepenv-cookie
+tar:
+	$(MAKE) -C $@
 
-clean_files     = $(prepenv_cookie) $(NATIVEPKGFILE)
-clobber_files   = $(clean_files) $(createenv_cookie)
-distclean_files = $(clobber_files)
+spkg pkgs:
+	$(if $(PP),$(MAKE) -C '$(PP)' $@)
 
-os    = $(basename $(1))
-arch  = $(patsubst .%,%,$(suffix $(1)))
+clean clobber distclean:
+	$(if $(PP),$(MAKE) -C '$(PP)' $@)
+	$(if $(PP),,$(MAKE) -C '$(def_lmoddir)' clean)
+	$(if $(PP),,$(MAKE) -C /lib/modules/`uname -r`/build \
+		M='$(PWD)/$(def_kmoddir)' clean)
 
-mkargs_os_call     = $(call mkargs2_call,_$(call os,$(1)),$(2))
-mkargs_arch_call   = $(call mkargs2_call,_$(call arch,$(1)),$(2))
-mkargs_osarch_call = $(call mkargs2_call,_$(1),$(2))
 
-mkmkargs_call = \
-	$(call mkargs_call,$(filter $(MAKE_vars),$(2))) \
-	$(call mkargs_os_call,$(1),$(filter $(MAKE_vars_os),$(2))) \
-	$(call mkargs_arch_call,$(1),$(filter $(MAKE_vars_arch),$(2))) \
-	$(call mkargs_osarch_call,$(1),$(filter $(MAKE_vars_osarch),$(2)))
-
-envbuild_mkvars = \
-	PKGARCH \
-	OSMACRO OSMACROVER \
-	PACKAGE_ENVBUILD_EXTRA_VARS \
-	$(PACKAGE_ENVBUILD_EXTRA_VARS) \
-	BUILDRUNCMD
-
-do_envbuild_mk = \
-	$(foreach p,$(PLATFORMS),\
-	  $(MAKE) -f '$(ENVBUILD_MKFILE)' \
-	    $(call mkmkargs_call,$p,$(envbuild_mkvars)) \
-	    $(1)$(nl)\
-	)
-
-sub_mkvars = \
-	PACKAGE PKGNAME \
-	VERSION RELEASE DIST \
-	SPECFILE PKGARCH KVARIANTS \
-	OSMACRO OSMACROVER \
-	TARBALLBUILDDIR TARBALLFILE \
-	BUILDROOT SRCBUILDDIR BINBUILDDIR \
-	PACKAGE_SUB_EXTRA_VARS \
-	$(PACKAGE_SUB_EXTRA_VARS)
-
-do_submks = \
-	$(foreach p,$(PLATFORMS),\
-	  [ ! -x '$(BUILDRUNCMD)' ] || \
-	    $(BUILDRUNCMD) '$(ROOT_$p)' \
-	      $(call shdq_call,\
-	        $(MAKE) \
-		  -C '$(BUILDROOT)' \
-		  -f mk/Makefile.sub \
-		  $(call mkmkargs_call,$p,$(sub_mkvars)) \
-		  $(1))$(nl)\
-	)
-
-all tarball srpms rpms: $(prepenv_cookie)
-	+$(call do_submks,$(patsubst %s,%,$@))
-
-create_buildenvs: $(createenv_cookie)
-
-prep_buildenvs: $(prepenv_cookie)
-
-$(prepenv_cookie): $(createenv_cookie)
-	+$(call do_envbuild_mk,prep_buildenv)
-	@touch -- '$@'
-
-$(createenv_cookie):
-	+$(call do_envbuild_mk,create_buildenv)
-	@touch -- '$@'
-
-clean clobber distclean::
-	+$(call do_submks,$@)
-	+$(call do_envbuild_mk,$@)
-
-clean clobber distclean::
-	$(call scrub_files_cmd_call,$($@_files))
-
-$(NATIVEPKGFILE):
-	./config-native $(CONFIG_ARGS) > '$@'
-
-.PHONY: all tarball rpms srpms create_buildenvs prep_buildenvs clean clobber distclean
+.PHONY: all src tar spkg pkgs clean clobber distclean
+.DELETE_ON_ERROR:

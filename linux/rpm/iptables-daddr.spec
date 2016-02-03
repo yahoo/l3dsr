@@ -22,7 +22,7 @@
   %define kmod_driver_version 0.7.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20150304
+  %define kmod_rpm_release 20160204
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -79,16 +79,22 @@ Vendor: Yahoo! Inc.
 Packager: Quentin Barnes <qbarnes@yahoo-inc.com>
 
 %if 0%{?rhel_version} == 406
+BuildRequires: module-init-tools
 Requires: module-init-tools >= 3.1-0.pre5.3.10
 %endif
 
 %if 0%{?rhel_version} == 505
-BuildRequires: redhat-rpm-config
+BuildRequires: module-init-tools, redhat-rpm-config
 %endif
 
 %if 0%{?rhel_version} == 600
+BuildRequires: module-init-tools, kernel-abi-whitelists
 # Only needed if building RHEL6 kvariants, skip for now.
 #BuildRequires: redhat-rpm-config >= 9.0.3-40
+%endif
+
+%if 0%{?rhel_version} == 700
+BuildRequires: kmod, kernel-abi-whitelists
 %endif
 
 %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 2
@@ -206,7 +212,6 @@ The "%{name}" package provides an iptables user-space
 plugin "DADDR" target.  The plugin requires installation of a
 "kmod-%{name}" package providing a matching kernel module for
 the running kernel.
-%{?url:For further information: %{url}}
 
 %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 3
 %description -n iptables-ipv6-daddr
@@ -216,7 +221,6 @@ The "iptables-ipv6-daddr" package provides an iptables user-space
 plugin "DADDR" target.  The plugin requires installation of a
 "kmod-%{name}" package providing a matching kernel module
 for the running kernel.
-%{?url:For further information: %{url}}
 %endif
 
 %prep
@@ -292,6 +296,9 @@ done
 
 
 %changelog
+* Thu Feb 04 2016 Quentin Barnes <qbarnes@yahoo-inc.com> 0.7.0-20160204
+- Packaging only changes for primarily building with mock.
+
 * Wed Mar 04 2015 Quentin Barnes <qbarnes@yahoo-inc.com> 0.7.0-20150304
 - Packaging only changes for some RHEL7 tweaks.
 

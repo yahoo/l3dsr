@@ -3,76 +3,35 @@
 These packages supply an Iptables plugin and kernel module and that
 allow rewriting of the destination IP address for IPv4 and IPv6.
 
-To build the packages (RPMs) for your OS, type:
+To build the software, type:
 
     $ make
 
-RPMs will be in:
+If your system is relatively current, the iptables plugin will be in
+extensions-1.4/libxt_DADDR.so and the kernel module in kmod-xt/xt_DADDR.ko.
+You may need to adjust "def_kmoddir" and "def_lmoddir" for older systems.
 
-    $ ls -l build-*/RPMS/* build-src/SRPMS
+For RPM-based distros, to build the binary packages, type:
 
+    $ make rpm-pkgs
 
-In this release, RHEL4, RHEL5, RHEL6, and Fedora 17 are directly
-supported.  When typing "make" on one of these systems, the build
-environment should just (hopefully) do the right thing for you.
-Even if on different system, but closely related, it should still
-work for you.  You may want to read further though if you need to
-tune or alter the build environment or if you're on a different
-build system than one of the supported and tested ones and your
-build breaks.
+The RPMs will be under:
 
-When building natively (the binary RPMs are built in the host
-environment), the script "config-native" will be invoked to create
-a "config-native.mk" file for you with its best guess at how to
-configure the build environment for your system.
+    $ ls -lR `rpm -E %_topdir`/{RPMS,SRPMS}
 
-The script firest determines what operating system to build for
-by setting the PLATFORMS, OSMACRO_* and OSMACROVER_* macros.  The
-values of these macros correspond to the same settings used by the
-OpenSUSE Build Service.  See:
-http://en.opensuse.org/openSUSE:Build_Service_cross_distribution_howto.
+You may want to override %_topdir by setting the make macro TOPDIR:
 
-You'll see the values of these macros passed to rpmbuild and are
-used by the "iptables-daddr.spec" spec file to control which sources
-are selected to build based on which versions of iptables and kernel
-are in use by the selected OS.
+    $ make TOPDIR=$PWD/topdir rpm-pkgs
 
-The script also examines the currently installed kernel devel
-packages for the kernel variants (kvariants) to build by setting the
-KVARIANTS_* macro.  If you want to change which kernel it looks for,
-use the -r option.  If you want to limit which kvariants it looks
-for, use the -k option.  For example:
-   $ uname -r
-   2.6.9-101.EL
-   $ rpm -qa | grep kernel | grep devel
-   kernel-largesmp-devel-2.6.9-100.EL
-   kernel-devel-2.6.9-101.EL
-   kernel-smp-devel-2.6.9-101.EL
-   kernel-xenU-devel-2.6.9-101.EL
+If you have mock installed, type:
 
-By default using "uname -r", config-native would select the
-kvariants for 2.6.9-101.EL which are '"" smp xenU".
+    $ make mock-pkgs
 
-If invoking "./config-native -r 2.6.9-100.EL", it would only select
-kvariants for 'largesmp' since kernel-largesmp-devel is only
-installed for that kernel (and would also add an additional macro
-Kverrel_* for selecting that kernel to build for).
+You may want to add the macro definition MOCK="sudo mock" to the line.
 
-If invoking "./config-native -k '"" xenU'", it would only select the
-kvariants for '"" xenU' ignoring smp.
+The RPMs will be in:
 
-You can control the arguments to config-native when calling "make"
-by setting the CONFIG_ARGS variable.  For example:
-   $ make CONFIG_ARGS="-r 2.6.9-101.EL -k '\"\" xenU'
-
-If you change "config-native" to support a system other than the
-ones listed above, please send me your patches.
-
-For systems not using yum and rpm, porting will be more complex,
-primarily changing the "mk/Makefile.build" and "mk/Makefile.sub"
-files.  If you make changes to port to other systems that can be
-folded back into the existing build system, please send me your
-patchset for review.
+    $ ls -lR mock/results_*/*.rpm
 
 
 === USING ===

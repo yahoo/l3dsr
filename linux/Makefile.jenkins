@@ -1,38 +1,113 @@
+#
 # Start a build from Jenkins.
-# Jenkins passes in BUILD_OS, BUILD_ARCH, and BUILD_NUMBER.
+#
+# Jenkins passes in JOB_NAME, BUILD_OS, BUILD_ARCH, and BUILD_NUMBER.
+#
 
 Package = iptables-daddr
 
-def_make_args = \
-	USE_MOCK=1 \
-	PLATFORMS='$(BUILD_OS).$(BUILD_ARCH)' \
-	BUILD_NUMBER='$(BUILD_NUMBER)'
+uniqid   = $(Package)-$(BUILD_OS)-$(BUILD_ARCH)
+builddir = $(CURDIR)/mock/build-$(uniqid)
+topdir   = $(builddir)
+
+pkglocalmk  = package-local.mk
+
+ifdef BUILD_DIST
+  dist = .$(BUILD_DIST)
+endif
+
+target_arch = $(BUILD_ARCH)
+
+ifeq ($(BUILD_OS),rhel6)
+  kverrel = 2.6.32-71.el6
+  $(if $(dist),,dist = .el6)
+endif
+ifeq ($(BUILD_OS),rhel7)
+  kverrel = 3.10.0-123.el7
+  $(if $(dist),,dist = .el7)
+endif
+
+ifdef kverrel
+kdrpmfile = kernel-devel-$(kverrel).$(target_arch).rpm
+krepohost = http://repo.linux.corp.yahoo.com/
+krepourl  = $(krepohost)rh$(patsubst .%,%,$(dist))_kernels/$(target_arch)/
+kdurl     = $(krepourl)/$(kdrpmfile)
+endif
+
+url = http://twiki.corp.yahoo.com/view/Platform/Iptables-daddr
+
+define nl
+
+
+endef
+
+mock_cfg = $(or $(MOCK_CFG),\
+	epel-$(patsubst rhel%,%,$(BUILD_OS))-$(BUILD_ARCH)-yahoo)
+mock_prefix = $(Package)
+
+mock_srpm_resultdir = results_$(uniqid)-srpm
+extra_mock_srpm_args = \
+	-r $(mock_cfg) \
+	--uniqueext=$(mock_prefix)-srpm
+
+mock_rpm_resultdir = results_$(uniqid)-rpm
+extra_mock_rpm_args = \
+	-r $(mock_cfg) \
+	--target=$(target_arch) \
+	--uniqueext=$(mock_prefix)-rpm \
+	--no-clean
 
 def_deploy_rpms_args = -f
 
-clean_files =
-clobber_files = $(clean_files) \
-	$(wildcard results_$(Package)-build-src) \
-	$(wildcard results_$(Package)-build-$(BUILD_OS)-$(BUILD_ARCH))
+all_rpms = \
+	$(filter-out %.src.rpm,$(wildcard mock/$(mock_rpm_resultdir)/*.rpm)) \
+	$(wildcard mock/$(mock_srpm_resultdir)/*.src.rpm)
+
+mock_prep_cookie = .mock-prep-cookie
+
+clean_files     = $(pkglocalmk) $(mock_prep_cookie)
+clobber_files   = $(clean_files) \
+		  mock/$(mock_rpm_resultdir) mock/$(mock_srpm_resultdir)
 distclean_files = $(clobber_files)
+
 
 commit-%: BUILD_NUMBER:=$(if $(BUILD_NUMBER),0.$(BUILD_NUMBER))
 commit-%: %;
 component-%: def_deploy_rpms_args += -R
 component-%: %;
 
-all:
-	$(MAKE) $(def_make_args) $@
+all: mock-pkgs
+
+mock-pkgs: $(pkglocalmk) $(mock_prep_cookie)
+	$(MAKE) $@
+
+$(pkglocalmk): $(MAKEFILE_LIST)
+	echo 'BUILD_NUMBER = $(BUILD_NUMBER)' > '$@'
+	$(if $(dist),echo 'DIST = $(dist)' >> '$@')
+	$(if $(kverrel),echo 'KVERREL = $(kverrel)' >> '$@')
+	echo 'MOCK_SRPM_RESULTDIR = $(mock_srpm_resultdir)' >> '$@'
+	echo 'MOCK_RPM_RESULTDIR = $(mock_rpm_resultdir)' >> '$@'
+	echo 'EXTRA_MOCK_SRPM_ARGS = $(extra_mock_srpm_args)' >> '$@'
+	echo 'EXTRA_MOCK_RPM_ARGS = $(extra_mock_rpm_args)' >> '$@'
+	echo 'URL = $(url)' >> '$@'
+
+$(mock_prep_cookie):
+	$(MOCK) $(extra_mock_rpm_args) \
+		--resultdir='mock/$(mock_rpm_resultdir)' --init
+ifdef kdurl
+	$(MOCK) $(extra_mock_rpm_args) \
+		--resultdir='mock/$(mock_rpm_resultdir)' \
+		--install '$(kdurl)'
+endif
+	@touch -- '$(mock_prep_cookie)'
 
 publish: all
-	./deploy-rpms \
-		$(def_deploy_rpms_args) \
-		$(filter-out %.src.rpm,$(wildcard results_$(Package)-build-$(BUILD_OS)-$(BUILD_ARCH)/*.rpm)) \
-		$(wildcard results_$(Package)-build-src/*.src.rpm)
+	./deploy-rpms $(def_deploy_rpms_args) $(all_rpms)
 
 clean clobber distclean:
-	$(MAKE) $(def_make_args) $@
+	$(MAKE) mock-$@
 	$(foreach f,$(wildcard $($@_files)),rm -rf -- '$f'$(nl))
 
-.DEFAULT: commit-all
-.PHONY: all publish clean clobber distclean
+.DEFAULT_GOAL = commit-all
+.PHONY: all mock-pkgs publish clean clobber distclean
+.DELETE_ON_ERROR:
