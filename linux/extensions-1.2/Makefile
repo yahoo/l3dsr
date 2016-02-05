@@ -23,7 +23,7 @@ all: $(all_targets)
 install: $(install_targets)
 
 clean:
-	rm -rf -- $($@_files)
+	rm -rf -- $($@_targets)
 
 lib%.so: lib%.o
 	$(LINK.so) $(OUTPUT_OPTION) $^
@@ -37,3 +37,4 @@ $(ipt_libdir)/%: %
 
 
 .PHONY: all install clean
+.DELETE_ON_ERROR:
