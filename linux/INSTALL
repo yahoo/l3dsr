@@ -1,0 +1,73 @@
+These packages supply an Iptables plugin and kernel module and that
+allow rewriting of the destination IP address for IPv4 and IPv6.
+
+To build both components of the software, type:
+
+    $ make
+
+If your system is relatively current, the iptables plugin will
+be in extensions-1.4/libxt_DADDR.so and the kernel module in
+kmod-xt/xt_DADDR.ko.
+
+If your build fails to compile, you may need to adjust "def_kmoddir"
+and/or "def_lmoddir" to point to one of the other directories
+(extensions-1.{2,3} or kmod-{ipt,xt-older}) for older systems.
+
+
+To install the components, you need to specify the base library path
+with the "libdir" make macro.  Set it to where your system has its
+iptables library modules.  This example assumes it is "/usr/lib64"
+(common for some distros running on 64-bit architectures):
+
+    $ sudo make libdir=/usr/lib64 install
+
+If the directory name used for iptables library modules is incorrect
+for your system, you may need override it by giving the full path
+for the library modules using "ipt_libdir".  For example:
+
+    $ sudo make ipt_libdir=/usr/lib/iptables install
+
+
+For RPM-based distros, to build the binary packages, type:
+
+    $ make rpm-pkgs
+
+The RPMs will be under:
+
+    $ ls -lR `rpm -E %_topdir`/{RPMS,SRPMS}
+
+You may want to override %_topdir by setting the make macro TOPDIR:
+
+    $ make TOPDIR=$PWD/topdir rpm-pkgs
+
+
+If you have mock installed, type:
+
+    $ make mock-pkgs
+
+You may want to add the macro definition MOCK="sudo mock" to the line.
+
+The RPMs will be in:
+
+    $ ls -lR mock/results_*/*.rpm
+
+
+If you want to build packages for a system using something other
+than the provided "rpm" or "mock", you can create your own directory
+and add your packaging files there then provide the directory to the
+Makefile to call it with the PPS make macro.  For example, if your
+directory is "deb", you could call it with:
+
+    $ make PPS=deb deb-pkgs
+
+If you are happy with your efforts, please submit a pull request to
+include your new files in the repository.
+
+If you need to provide new make macros or change the default settings
+for existing ones, you may optionally provide at the top level a
+"package-local.mk" file which will be automatically included by
+subdirectory Makefiles.
+
+With the PPS macro and "package-local.mk", these should substantially
+reduce the need to modify provided files when building source or
+packages for your environment.

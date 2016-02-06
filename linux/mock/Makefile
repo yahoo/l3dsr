@@ -14,7 +14,7 @@
 
 include macros.mk package.mk rpm/rpmdefs.mk
 
-MOCK = mock
+MOCK ?= mock
 
 ifdef DIST
   ifeq ($(DIST),"")
@@ -42,49 +42,54 @@ rpmspecfile  = $(rpmdir)/$(specfile)
 sources      = SOURCES
 sourcesfiles = $(addprefix $(sources)/,$(extrasrcfiles))
 
-spkg_cookie    = .spkg-cookie
-pkgs_cookie    = .pkgs-cookie
-sources_cookie = .sources-cookie
+rpmpkgs  := $(shell rpm $(build_defs) --specfile '$(rpmspecfile)' 2> /dev/null)
+rpmpkgs  := $(rpmpkgs) kmod-$(firstword $(rpmpkgs))
+rpms      = $(foreach p,$(rpmpkgs),$(rpm_resultdir)/$p.rpm)
 
-srpm = $(lastword $(wildcard $(srpm_resultdir)/$(package)-$(version)-*.src.rpm))
-rpms = $(wildcard $(rpm_resultdir)/$(package)-$(version)-*.rpm)
+pkgarches = $(foreach p,$(rpmpkgs),$(lastword $(subst ., ,$p)))
+srpmpkg   = $(patsubst %.$(firstword $(pkgarches)),%,$(firstword $(rpmpkgs)))
+srpm      = $(srpm_resultdir)/$(srpmpkg).src.rpm
 
-clean_files     = $(sourcesfiles) \
-		  $(spkg_cookie) $(pkgs_cookie) $(sources_cookie)
-clobber_files   = $(clean_files) $(rpms) $(srpm) $(sources) \
-		  $(rpm_resultdir) $(srpm_resultdir)
+clean_files     = $(rpms) $(srpm) $(sourcesfiles)
+clobber_files   = $(clean_files) $(sources) $(rpm_resultdir) $(srpm_resultdir)
 distclean_files = $(clobber_files)
 
 
 all: spkg pkgs
 
-spkg: $(spkg_cookie)
+spkg: $(srpm)
 
-pkgs: $(pkgs_cookie)
+pkgs: $(rpms)
 
 $(tardir)/$(zsrctarfile):
 	$(MAKE) -C '$(@D)' '$(@F)'
 
-$(sources)/$(zsrctarfile): $(tardir)/$(zsrctarfile)
-	$(call mkdirs_call,$(@D))
-	cp -- '$<' '$@'
+$(sources)/$(zsrctarfile): $(tardir)/$(zsrctarfile) | $(sources)
+	cp -fp -- '$<' '$@'
 
-$(sources)/%: $(rpmdir)/%
-	$(call mkdirs_call,$(@D))
-	cp -- '$<' '$@'
+$(sources)/%: $(rpmdir)/% | $(sources)
+	cp -fp -- '$<' '$@'
 
-$(spkg_cookie): $(sourcesfiles) $(sources)/$(zsrctarfile)
+$(srpm): $(sourcesfiles) $(sources)/$(zsrctarfile) $(rpmspecfile)
 	$(MOCK) \
-		--target='noarch' \
 		$(mock_srpm_args) \
 		--buildsrpm \
 		--sources '$(sources)' \
 		--spec '$(rpmspecfile)'
-	@touch -- '$@'
 
-$(pkgs_cookie): $(spkg_cookie)
+$(rpms): $(srpm)
 	$(MOCK) $(mock_rpm_args) --rebuild '$(srpm)'
-	@touch -- '$@'
+
+$(srpm) $(rpms): $(MAKEFILE_LIST)
+
+$(sources):
+	mkdir -p -- '$@'
+
+print_spkg:
+	@echo '$(addprefix $(CURDIR)/,$(srpm))'
+
+print_pkgs:
+	@echo '$(addprefix $(CURDIR)/,$(rpms))'
 
 clean clobber distclean:
 	$(call scrub_files_call,$($@_files))
@@ -92,5 +97,5 @@ clean clobber distclean:
 	$(MAKE) -C '$(tardir)' '$@'
 
 
-.PHONY: all spkg pkgs clean clobber distclean
+.PHONY: all spkg pkgs print_spkg print_pkgs clean clobber distclean
 .DELETE_ON_ERROR:

@@ -36,13 +36,6 @@ mkargs2_call = $(foreach v,$(2),$v=$(call shdq_call,$($v$(1))))
 # expands to VAR="$(VAR)" with the string properly escaped.
 mkargs_call = $(call mkargs2_call,,$(1))
 
-copy_file_call = \
-	[ -d '$(dir $(2))' ] || mkdir -p -- '$(dir $(2))' && \
-	cp -a -- '$(1)' '$(2)'$(nl)
+copy_file_call = cp -a -- '$(1)' '$(2)'$(nl)
 
 scrub_files_call = $(foreach f,$(wildcard $(1)),$(RM) -r -- '$f'$(nl))
-
-mkdirs_call = $(foreach f,$(filter-out $(wildcard $(1)),$(1)),\
-		    mkdir -p -- '$f'$(nl))
-
-mkrpmdirs_call = $(call mkdirs_call,$(addprefix $(1)/,$(rpmdirs)))

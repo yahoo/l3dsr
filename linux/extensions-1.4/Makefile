@@ -1,4 +1,4 @@
-# When making "install" target, libdir must be set by rpmbuild.
+# When making "install" target, libdir or ipt_libdir must be set.
 
 CFLAGS   = -O2 -g -Wall -Wunused -fPIC
 INCPATH  = ../kmod-xt
@@ -7,14 +7,14 @@ LINK.so  = $(LINK.o) -shared
 
 vpath %.h $(INCPATH)
 
-xt_libdir = $(libdir)/xtables
+ipt_libdir ?= $(libdir)/xtables
 
-xtplugins = libxt_DADDR.so
+iptplugins  = libxt_DADDR.so
 
-instxtplugins = $(addprefix $(xt_libdir)/,$(xtplugins))
+instiptplugins = $(addprefix $(ipt_libdir)/,$(iptplugins))
 
-all_targets     = $(xtplugins)
-install_targets = $(instxtplugins)
+all_targets     = $(iptplugins)
+install_targets = $(instiptplugins)
 clean_targets   = $(all_targets)
 
 
@@ -31,9 +31,11 @@ lib%.so: lib%.o
 lib%.o: lib%.c %.h
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
-$(xt_libdir)/%: %
-	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
+$(ipt_libdir)/%: % | $(ipt_libdir)
 	cp -fp -- '$<' '$@'
+
+$(ipt_libdir):
+	mkdir -p -- '$@'
 
 
 .PHONY: all install clean
