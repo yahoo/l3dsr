@@ -15,8 +15,10 @@ subdirs = \
 include $(addsuffix /files.mk,$(subdirs))
 
 srcfiles += \
-	README \
 	LICENSE \
+	README \
+	INSTALL \
+	USING \
 	Makefile \
 	macros.mk \
 	package.mk
@@ -38,7 +40,7 @@ tar: $(zsrctarfile)
 $(zsrctarfile): $(sources_cookie)
 	tar -cjf '$@' '$(tardestdir)'
 
-$(sources_cookie): $(addprefix ../,$(srcfiles))
+$(sources_cookie): $(addprefix ../,$(srcfiles)) $(MAKEFILE_LIST)
 	$(call scrub_files_call,$(tardestdir))
 	mkdir -p -- '$(tardestdir)'
 	tar -c -C .. $(srcfiles) | tar -x -C '$(tardestdir)'

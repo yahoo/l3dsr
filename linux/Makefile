@@ -26,26 +26,29 @@ $(eval \
 def_kmoddir ?= kmod-xt
 def_lmoddir ?= extensions-1.4
 
+uname_r       := $(shell uname -r)
+kmod_make_dir  = /lib/modules/$(uname_r)/build
+kmod_make_args = -C '$(kmod_make_dir)' M='$(CURDIR)/$(def_kmoddir)'
 
-all: src
-
-src:
-	$(MAKE) -C /lib/modules/`uname -r`/build \
-		M='$(PWD)/$(def_kmoddir)'
+all:
+	$(MAKE) $(kmod_make_args)
 	$(MAKE) -C '$(def_lmoddir)'
+
+install:
+	$(MAKE) $(kmod_make_args) modules_install
+	$(MAKE) -C '$(def_lmoddir)' $@
 
 tar:
 	$(MAKE) -C $@
 
-spkg pkgs:
+spkg pkgs print_spkg print_pkgs:
 	$(if $(PP),$(MAKE) -C '$(PP)' $@)
 
 clean clobber distclean:
 	$(if $(PP),$(MAKE) -C '$(PP)' $@)
 	$(if $(PP),,$(MAKE) -C '$(def_lmoddir)' clean)
-	$(if $(PP),,$(MAKE) -C /lib/modules/`uname -r`/build \
-		M='$(PWD)/$(def_kmoddir)' clean)
+	$(if $(PP),,$(MAKE) $(kmod_make_args) clean)
 
 
-.PHONY: all src tar spkg pkgs clean clobber distclean
+.PHONY: all install tar spkg pkgs print_spkg print_pkgs clean clobber distclean
 .DELETE_ON_ERROR:

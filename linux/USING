@@ -1,0 +1,28 @@
+A practical application of this software is to do L3DSR (Level 3
+Direct Server Return).  For an overview, see Jan Schaumann's slides,
+l3dsr/docs/nanog51.pdf.
+
+For example, to use iptables-daddr you have two Load Balancers (LBs)
+with two VIPs (e.g. 72.30.38.140 and 98.139.183.24) and several
+servers behind them.  The LBs must be able to rewrite the DSCP field
+of incoming, forwarded packets (or in some way mark the packets such
+that an iptables match rule on the servers can identify them).
+
+For example, the first VIP will set the DSCP field to 1 for its
+packets going to the servers, where the second VIP will set the
+DSCP field to 2.  This will allow the servers to know what to set
+the destination address to in reply packets they send directly
+to client machines.
+
+On each server, create lookback interfaces corresponding to the VIPs
+and iptables rules to set the return address on the packets:
+# ifconfig lo:1 72.30.38.140 netmask 255.255.255.255
+# ifconfig lo:2 98.139.183.24 netmask 255.255.255.255
+# iptables -t mangle -A INPUT -m dscp --dscp 1 -j DADDR --set-daddr=72.30.38.140
+# iptables -t mangle -A INPUT -m dscp --dscp 2 -j DADDR --set-daddr=98.139.183.24
+
+An example for IPv6:
+# ifconfig lo:3 add fc00:1000:0:6::10/128
+# ifconfig lo:4 add fc00:1000:0:6::21/128
+# ip6tables -t mangle -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
+# ip6tables -t mangle -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21

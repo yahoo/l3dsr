@@ -1,4 +1,4 @@
-# When making "install" target, libdir must be set by rpmbuild.
+# When making "install" target, libdir or ipt_libdir must be set.
 
 CFLAGS   = -O2 -g -Wall -Wunused -fPIC
 INCPATH  = ../kmod-ipt include
@@ -7,9 +7,9 @@ LINK.so  = $(LINK.o) -shared
 
 vpath %.h $(INCPATH)
 
-ipt_libdir = $(libdir)/iptables
+ipt_libdir ?= $(libdir)/iptables
 
-iptplugins = libipt_DADDR.so
+iptplugins  = libipt_DADDR.so
 
 instiptplugins = $(addprefix $(ipt_libdir)/,$(iptplugins))
 
@@ -31,9 +31,11 @@ lib%.so: lib%.o
 lib%.o: lib%.c %.h
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
-$(ipt_libdir)/%: %
-	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
+$(ipt_libdir)/%: % | $(ipt_libdir)
 	cp -fp -- '$<' '$@'
+
+$(ipt_libdir):
+	mkdir -p -- '$@'
 
 
 .PHONY: all install clean

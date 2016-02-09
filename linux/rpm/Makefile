@@ -28,13 +28,17 @@ ifdef DIST
   endif
 endif
 
-srpm = $(lastword $(wildcard $(topdir)/SRPMS/$(package)-$(version)-*.src.rpm))
-rpms = $(wildcard $(topdir)/RPMS/*/*$(package)-*$(version)-*.rpm)
+rpmpkgs  := $(shell rpm $(build_defs) --specfile '$(specfile)' 2> /dev/null)
+rpmpkgs  := $(rpmpkgs) kmod-$(firstword $(rpmpkgs))
+
+pkgarches = $(foreach p,$(rpmpkgs),$(lastword $(subst ., ,$p)))
+rpmdirs   = $(foreach a,$(pkgarches),$(topdir)/RPMS/$a/)
+rpms      = $(addsuffix .rpm,$(join $(rpmdirs),$(rpmpkgs)))
+
+srpmpkg   = $(patsubst %.$(firstword $(pkgarches)),%,$(firstword $(rpmpkgs)))
+srpm      = $(topdir)/SRPMS/$(srpmpkg).src.rpm
 
 tardir = ../tar
-
-spkg_cookie = .spkg-cookie
-pkgs_cookie = .pkgs-cookie
 
 rpmbuild_defs   = $(build_defs) \
 		  $(if $(TOPDIR),--define '_topdir $(TOPDIR)')
@@ -42,17 +46,16 @@ rpmbuild_defs   = $(build_defs) \
 rpmbuild_args   = $(rpmbuild_defs) \
 		  $(EXTRA_RPMBUILD_ARGS)
 
-clean_files     = $(zrpmtarfile) $(rpmtarfile) \
-		  $(spkg_cookie) $(pkgs_cookie)
-clobber_files   = $(clean_files) $(srpm) $(rpms)
+clean_files     = $(rpms) $(srpm) $(zrpmtarfile) $(rpmtarfile)
+clobber_files   = $(clean_files) $(TOPDIR)
 distclean_files = $(clobber_files)
 
 
 all: spkg pkgs
 
-spkg: $(spkg_cookie)
+spkg: $(srpm)
 
-pkgs: $(pkgs_cookie)
+pkgs: $(rpms)
 
 zrpmtar: $(zrpmtarfile)
 
@@ -66,18 +69,24 @@ $(rpmtarfile): $(tardir)/$(zsrctarfile) $(extrasrcfiles) $(specfile)
 $(zrpmtarfile): $(rpmtarfile)
 	bzip2 -czk '$<' > '$@'
 
-$(spkg_cookie): $(zrpmtarfile)
-	rpmbuild -ts $(rpmbuild_args) '$<'
-	@touch -- '$@'
+$(srpm): $(zrpmtarfile)
+	rpmbuild -ts --target=noarch $(rpmbuild_args) '$<'
 
-$(pkgs_cookie): $(zrpmtarfile)
+$(rpms): $(zrpmtarfile)
 	rpmbuild -tb $(rpmbuild_args) '$<'
-	@touch -- '$@'
+
+$(srpm) $(rpms): $(MAKEFILE_LIST)
+
+print_spkg:
+	@echo '$(srpm)'
+
+print_pkgs:
+	@echo '$(rpms)'
 
 clean clobber distclean:
 	$(call scrub_files_call,$($@_files))
 	$(MAKE) -C '$(tardir)' $@
 
 
-.PHONY: all spkg pkgs zrpmtar clean clobber distclean
+.PHONY: all spkg pkgs zrpmtar print_spkg print_pkgs clean clobber distclean
 .DELETE_ON_ERROR:
