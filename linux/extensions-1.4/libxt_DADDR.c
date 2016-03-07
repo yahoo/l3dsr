@@ -16,7 +16,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <iptables.h>
+#include <xtables.h>
 #include "xt_DADDR.h"
 
 
