@@ -39,8 +39,7 @@ all_targets = $(rcfile) \
 	      $(cmdfile) \
 	      $(servicefile) \
 	      $(man5file) \
-	      $(man8file) \
-	      $(readme)
+	      $(man8file)
 
 install_targets = $(instrcfile) \
 		  $(instcmdfile) \
