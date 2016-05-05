@@ -12,10 +12,6 @@
 # Also see rpm/rpmdefs.mk for rarely set optional macros.
 #
 
-include macros.mk package.mk rpm/rpmdefs.mk
-
-MOCK ?= mock
-
 ifdef DIST
   ifeq ($(DIST),"")
     dist = %{nil}
@@ -23,6 +19,10 @@ ifdef DIST
     dist = $(DIST)
   endif
 endif
+
+include macros.mk package.mk rpm/rpmdefs.mk
+
+MOCK ?= mock
 
 srpm_resultdir = $(or $(MOCK_SRPM_RESULTDIR),results_srpm)
 rpm_resultdir  = $(or $(MOCK_RPM_RESULTDIR),results_rpm)
@@ -42,7 +42,11 @@ rpmspecfile  = $(rpmdir)/$(specfile)
 sources      = SOURCES
 sourcesfiles = $(addprefix $(sources)/,$(extrasrcfiles))
 
-rpmpkgs  := $(shell rpm $(build_defs) --specfile '$(rpmspecfile)' 2> /dev/null)
+rpmpkgs  := $(shell \
+	$(MOCK) $(mock_srpm_args) --quiet \
+		--copyin '$(rpmspecfile)' . && \
+	$(MOCK) $(mock_srpm_args) --quiet \
+		--shell "rpm -q $(build_defs) --specfile '$(specfile)'")
 rpmpkgs  := $(rpmpkgs) kmod-$(firstword $(rpmpkgs))
 rpms      = $(foreach p,$(rpmpkgs),$(rpm_resultdir)/$p.rpm)
 
