@@ -8,7 +8,7 @@
 #  "pkgs" targets as given in "PPS".  For example:
 #    $ make rpm-pkgs
 #
-#  See the README for further examples.
+#  See INSTALL for further examples.
 #
 
 include macros.mk package.mk
