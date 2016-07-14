@@ -16,20 +16,22 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.0.0
+  %define pkg_version 1.1.0
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20150420
+  %define pkg_release 20160714
 %endif
 
 Summary: DSR tools
 Name: %{pkg_name}
 Version: %{pkg_version}
 Release: %{pkg_release}%{?build_number:.%{build_number}}%{?dist}
-License: Proprietary
+License: GPLv2
 Group: System Environment/System
-URL: http://twiki.corp.yahoo.com/view/Platform/Dsrtools
-Vendor: Yahoo! Inc.
+%if 0%{?url:1}
+URL: %{url}
+%endif
+Vendor: Yahoo Inc.
 Packager: Wayne Badger <badger@yahoo-inc.com>
 
 %define with_systemd  %{?_without_systemd:0}%{?!_without_systemd:1}
@@ -67,11 +69,11 @@ displaying status information.
 %setup -q
 
 %build
-%__make -C src PACKAGE=%{name} VERSION=%{version} RELEASE=%{release} DIST=%{?dist} INSTDIR='%{buildroot}' WITHSYSTEMD=%{with_systemd} all
+%__make -C src PACKAGE=%{name} VERSION=%{version} RELEASE=%{release} INSTDIR='%{buildroot}' WITHSYSTEMD=%{with_systemd} all
 
 %install
 %__rm -rf -- '%{buildroot}'
-%makeinstall -C src PACKAGE=%{name} VERSION=%{version} RELEASE=%{release} DIST=%{?dist} INSTDIR='%{buildroot}' WITHSYSTEMD=%{with_systemd}
+%makeinstall -C src PACKAGE=%{name} VERSION=%{version} RELEASE=%{release} INSTDIR='%{buildroot}' WITHSYSTEMD=%{with_systemd}
 
 %clean
 %__rm -rf -- '%{buildroot}'
@@ -99,19 +101,23 @@ displaying status information.
 
 %defattr(0755, root, root)
 %dir %{_sysconfdir}/dsr.d
-%{_sysconfdir}/dsr.d/%{dsrreadme}
 %{_sbindir}/%{cmdfile}
-%if %{with_systemd}
-  %{_unitdir}/%{dsrservice}
-%else
+%if ! %{with_systemd}
   %{_initrddir}/%{rcfile}
 %endif
 
 %defattr(0644, root, root)
+%{_sysconfdir}/dsr.d/%{dsrreadme}
+%if %{with_systemd}
+  %{_unitdir}/%{dsrservice}
+%endif
 %{_mandir}/man5/%{man5file}.gz
 %{_mandir}/man8/%{man8file}.gz
 
 
 %changelog
+* Thu Jul 14 2016 Wayne Badger <badger@yahoo-inc.com> 1.1.0-20160714
+- Refactor build environment.
+
 * Mon Apr 20 2015 Wayne Badger <badger@yahoo-inc.com> 1.0.0-20150420
 - Initial release.

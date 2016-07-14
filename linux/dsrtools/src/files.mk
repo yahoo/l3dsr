@@ -5,4 +5,4 @@ srcfiles += \
 	src/dsrrc.sh \
 	src/dsr.service.sed \
 	src/dsrctl.sh \
-	src/README
+	src/README.txt

@@ -250,7 +250,7 @@ declare TopDir=$(rpm -E '%{_topdir}')
 declare -i Flag_c=0 Flag_f=0 Flag_r=0
 declare -i Verbose=0
 declare opt
-declare DeployerAccount=lkt_deployer_headless
+declare DeployerAccount=${DeployerAccount-lkt_deployer_headless}
 
 declare ArtiRepo=lkt-yum-builds
 declare Repo=commit
@@ -297,7 +297,7 @@ else
 	declare Rpms=("$@")
 fi
 
-declare BaseRepoURL=http://artifactory.ops.yahoo.com:4080/artifactory/$ArtiRepo
+declare BaseRepoURL=https://artifactory.ops.yahoo.com:4443/artifactory/$ArtiRepo
 declare BaseRepoScp=artifactory-ssh-proxy.corp.yahoo.com:/$ArtiRepo
 
 if (( Flag_c ))

@@ -1,9 +1,5 @@
-The dsrtools package provides support for configuring L2DSR and L3DSR
-on a server.  By creating a configuration file that is typically stored
-in /etc/dsr.d, the DSR configuration is started whenever the host
-boots.
+See "INSTALL" for help with building and installing the ypanic-tools
+software.
 
-dsrtools is supported on RHEL5 and later.
-
-Version 1.0 (2015-04-13, badger)
-  - initial release
+See "USING" for information and examples for using ypanic-tools
+software.

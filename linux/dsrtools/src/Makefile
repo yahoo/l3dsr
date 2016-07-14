@@ -1,7 +1,4 @@
-include ../mk/macros.mk
-
 $(call varchklist_call,\
-	DIST \
 	INSTDIR \
 	PACKAGE \
 	RELEASE \
@@ -18,20 +15,28 @@ man8file = $(man8base).8
 confdir = dsr.d
 readme = README
 
-instrcfile   = $(INSTDIR)/etc/rc.d/init.d/$(rcfilebase)
-instcmdfile  = $(INSTDIR)/usr/sbin/$(cmdfile)
+instrcfile      = $(INSTDIR)/etc/rc.d/init.d/$(rcfilebase)
+instcmdfile     = $(INSTDIR)/usr/sbin/$(cmdfile)
 instservicefile = $(INSTDIR)/usr/lib/systemd/system/$(servicefile)
-instman5file  = $(INSTDIR)/usr/share/man/man5/$(man5file)
-instman8file  = $(INSTDIR)/usr/share/man/man8/$(man8file)
-instconfd =  $(INSTDIR)/etc/$(confdir)
-instreadme =  $(INSTDIR)/etc/$(confdir)/$(readme)
+instman5file    = $(INSTDIR)/usr/share/man/man5/$(man5file)
+instman8file    = $(INSTDIR)/usr/share/man/man8/$(man8file)
+
+instrcd         = $(INSTDIR)/etc/rc.d/init.d
+instconfd       = $(INSTDIR)/etc/$(confdir)
+instcmdd        = $(INSTDIR)/usr/sbin
+instserviced    = $(INSTDIR)/usr/lib/systemd/system
+instman5d       = $(INSTDIR)/usr/share/man/man5
+instman8d       = $(INSTDIR)/usr/share/man/man8
+instreadme      = $(INSTDIR)/etc/$(confdir)/$(readme)
 
 ifeq ($(WITHSYSTEMD),1)
   rcfile=
   instrcfile=
+  instrcd=
 else
   servicefile=
   instservicefile=
+  instserviced=
 endif
 
 
@@ -46,8 +51,17 @@ install_targets = $(instrcfile) \
 		  $(instservicefile) \
 		  $(instman5file) \
 		  $(instman8file) \
+		  $(instrcd) \
+		  $(instcmdd) \
 		  $(instconfd) \
 		  $(instreadme)
+
+instdirs        = $(instrcd) \
+                  $(instconfd) \
+                  $(instcmdd) \
+                  $(instserviced) \
+                  $(instman5d) \
+                  $(instman8d)
 
 clean_targets = $(all_targets)
 
@@ -57,31 +71,25 @@ all: $(all_targets)
 
 install: $(install_targets)
 
-$(instrcfile): $(rcfile)
-	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
+$(instservicefile): $(servicefile) | $(instserviced)
 	cp -fp -- '$<' '$@'
 
-$(instcmdfile): $(cmdfile)
-	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
+$(instrcfile): $(rcfile) $(instrcd)
 	cp -fp -- '$<' '$@'
 
-$(instservicefile): $(servicefile)
-	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
+$(instcmdfile): $(cmdfile) | $(instcmdd)
 	cp -fp -- '$<' '$@'
 
-$(instman5file): $(man5file)
-	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
+$(instman5file): $(man5file) | $(instman5d)
 	cp -fp -- '$<' '$@'
 
-$(instman8file): $(man8file)
-	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
+$(instman8file): $(man8file) | $(instman8d)
 	cp -fp -- '$<' '$@'
 
-$(instreadme): $(readme)
-	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
+$(instreadme): $(readme) | $(instconfd)
 	cp -fp -- '$<' '$@'
 
-$(instconfd):
+$(instdirs):
 	mkdir -p -- '$@'
 
 clean distclean:
@@ -95,14 +103,17 @@ clean distclean:
 	cp -fp -- '$<' '$@'
 	chmod -w+x -- '$@'
 
+%: %.txt
+	cp -fp -- '$<' '$@'
+	chmod -w -- '$@'
+
 %: %.sed
 	rm -f -- '$@'
 	@[ -d '$(@D)' ] || mkdir -p -- '$(@D)'
 	sed \
-		-e 's/__PACKAGE__/$(PACKAGE)/g' \
 		-e 's/__VERSION__/$(VERSION)/g' \
-		-e 's/__RELEASE__/$(RELEASE)/g' \
 		'$<' > '$@' || rm -f -- '$@'
 	chmod -w -- '$@'
 
 .PHONY: all install clean distclean
+.DELETE_ON_ERROR:

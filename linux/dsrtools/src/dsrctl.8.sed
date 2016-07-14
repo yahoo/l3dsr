@@ -1,4 +1,4 @@
-.TH DSRCTL "8" "March 2015" "dsrctl __VERSION__" "System Management Commands"
+.TH DSRCTL "8" "July 2016" "dsrctl __VERSION__" "System Management Commands"
 .SH NAME
 dsrctl \- control L3DSR/L2DSR configurations
 .SH SYNOPSIS
@@ -252,7 +252,7 @@ The \fBdsr\fP rcfile runs during every boot to start all of the configured DSRs.
 The \fBdsr\fP service runs during every boot to start all of the configured DSRs.
 
 .SH AUTHOR
-Wayne Badger, Yahoo!.
+Wayne Badger, Yahoo, Inc.
 .SH "REPORTING BUGS"
 Report bugs to <linux\-kernel@yahoo\-inc.com>.
 .SH "SEE ALSO"

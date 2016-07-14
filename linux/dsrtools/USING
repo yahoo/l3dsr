@@ -1,0 +1,22 @@
+The dsrtools package provides support for configuring L2DSR and L3DSR
+on a server.  By creating a configuration file that is typically stored
+in /etc/dsr.d, the DSR configuration is started whenever the host
+boots.
+
+dsrtools is supported on RHEL5 and later.
+
+Man pages are available in dsr.conf(5) and dsrctl(8).
+
+
+Examples
+
+# Start/Stop configured DSRs.
+sudo dsrctl start
+sudo dsrctl stop
+
+# See commands run when starting/stopping configured DSRs.
+sudo dsrctl -v start
+sudo dsrctl -v stop
+
+# Display configured DSRs.
+sudo dsrctl status

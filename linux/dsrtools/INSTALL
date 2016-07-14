@@ -1,0 +1,55 @@
+These packages supply the dsrtools software that provides control
+of L2DSR and L3DSR VIPs.
+
+To build the software, type:
+
+    $ make
+
+
+For RPM-based distros, to build the source package, type:
+
+    $ make rpm-spkg
+
+For RPM-based distros, to build the binary package, type:
+
+    $ make rpm-pkgs
+
+The RPMs will be under:
+
+    $ ls -lR `rpm -E %_topdir`/{RPMS,SRPMS}
+
+You may want to override %_topdir by setting the make macro TOPDIR:
+
+    $ make TOPDIR=$PWD/topdir rpm-spkg rpm-pkgs
+
+
+If you have mock installed, type:
+
+    $ make mock-pkgs
+
+You may want to add the macro definition MOCK="sudo mock" to the line.
+
+The RPMs will be in:
+
+    $ ls -lR mock/results_*/*.rpm
+
+
+If you want to build packages for a system using something other
+than the provided "rpm" or "mock", you can create your own directory
+and add your packaging files there then provide the directory to the
+Makefile to call it with the PPS make macro.  For example, if your
+directory is "deb", you could call it with:
+
+    $ make PPS=deb deb-pkgs
+
+If you are happy with your efforts, please submit a pull request to
+include your new files in the repository.
+
+If you need to provide new make macros or change the default settings
+for existing ones, you may optionally provide at the top level a
+"package-local.mk" file which will be automatically included by
+subdirectory Makefiles.
+
+With the PPS macro and "package-local.mk", these should substantially
+reduce the need to modify provided files when building source or
+packages for your environment.
