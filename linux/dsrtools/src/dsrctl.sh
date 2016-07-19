@@ -1377,7 +1377,7 @@ function _Lo_get_loopbacks
 	# Run the vip program to get the loopback information.
 	# $? is the return value of the rightmost cmd that fails or zero otherwise.
 	# This is usually the egrep.
-	ipout=$(run ip -o addr show lo | run egrep -v "127.0.0.1|LOOPBACK|::1/128")
+	ipout=$(run ip -o addr show lo | run tr -d \\134 | run egrep -v "127.0.0.1|LOOPBACK|::1/128")
 	[ $? -lt 2 ] || return 1
 
 	OIFS="$IFS"
@@ -1397,21 +1397,28 @@ function _Lo_get_loopbacks
                 lo=($line)
 		loaf=${lo[2]}
 		if [ "$loaf" == "inet" ]; then
-			loinfo=${lo[6]}
-			if [ "$loinfo" == "scope" ]; then
-				loinfo=${lo[8]}
-				loname=${loinfo%%:*}
-				lonum=${loinfo##${loname}:}
-			else
-				loname=${loinfo%%:*}
-				lonum=${loinfo##${loname}:}
-				lonum=${lonum%%\\*}
-			fi
+			# Find the "scope" element.  The loopback name is
+			# two elements later.
+			indx=-1
+			for ((i=0; i<${#lo[@]}; i++)) do
+				[ "${lo[$i]}" == "scope" ] || continue
+
+				(( indx = i + 2 ))
+				break
+			done
+
+			# Skip this line if we didn't find the "scope" element.
+			[ $indx -ge 2 ] || continue
+
+			loinfo=${lo[$indx]}
+			loname=${loinfo%%:*}
+			lonum=${loinfo##${loname}:}
 
 			vipinfo=${lo[3]}
 			vip=${vipinfo%%/*}
 			[ -n "$lonum" ] || continue
 		else
+			# inet6
 			vip=${lo[3]}
 			vip=${vip%%/*}
 			lonum=
