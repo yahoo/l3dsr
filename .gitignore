@@ -1,0 +1,11 @@
+.*
+rpm/*
+*.cmd
+*.so
+*.o
+*.c
+*.ko
+**/.build
+**/modules.order
+**/Module.symvers
+yvipagent/doc/README

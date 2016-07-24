@@ -21,7 +21,7 @@ doc-up:
 	( cd ${DOCDIR} && svn up )
 	mkdir -p .build/l3dsr/docs
 	cp ${DOCDIR}/README .build/l3dsr/README
-	cp ${DOCDIR}/nanog51/nanog51.pdf .build/l3dsr/docs/nanog51.pdf
+	#cp ${DOCDIR}/nanog51/nanog51.pdf .build/l3dsr/docs/nanog51.pdf
 
 freebsd-up:
 	( cd ${FREEBSDDIR} && svn up )
