@@ -1,4 +1,4 @@
-#! /usr/local/bin/perl -Tw
+#! /usr/bin/perl -Tw
 #
 # Copyright (c) 2009,2010,2011,2012,2013 Yahoo! Inc.
 #
@@ -38,6 +38,9 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
+#
+
+use diagnostics;
 
 use strict;
 use File::Basename;

@@ -42,7 +42,7 @@
 
 NAME="yvip"
 AGENT="/usr/local/libexec/yvipagent"
-CONFDIR="/usr/local/etc/yvip/vips"
+CONFDIR="/etc/yvip/vips"
 
 runOrDie() {
 	local arg=${1}
