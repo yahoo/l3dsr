@@ -16,10 +16,10 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.1.0
+  %define pkg_version 1.2.0
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20160714
+  %define pkg_release 20161026
 %endif
 
 Summary: DSR tools
@@ -49,7 +49,7 @@ Packager: Wayne Badger <badger@yahoo-inc.com>
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch: noarch
-Requires: ksh iptables iproute iptables-daddr kmod-iptables-daddr
+Requires: ksh iptables iproute iptables-daddr
 
 %if %{with_systemd}
 Requires: systemd
@@ -116,6 +116,12 @@ displaying status information.
 
 
 %changelog
+* Wed Oct 26 2016 Wayne Badger <badger@yahoo-inc.com> 1.2.0-20161026
+- Style rewrite
+- Add normalization of VIPs and DSCPs
+- Fix use of IPv6 addresses with upper/lower case
+- update man pages
+
 * Thu Jul 14 2016 Wayne Badger <badger@yahoo-inc.com> 1.1.0-20160714
 - Refactor build environment.
 

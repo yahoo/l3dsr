@@ -1,4 +1,4 @@
-.TH DSRCTL "8" "July 2016" "dsrctl __VERSION__" "System Management Commands"
+.TH DSRCTL "8" "October 2016" "dsrctl __VERSION__" "System Management Commands"
 .SH NAME
 dsrctl \- control L3DSR/L2DSR configurations
 .SH SYNOPSIS
@@ -23,9 +23,11 @@ and changes the destination IP address back to the LB and then processes the
 packet normally.  Any response to the packet is sent to the client directly
 without going through the LB.
 .PP
-L2DSR differs from L3DSR by not utilizing the DSCP field.  Instead, the iptables
-rule matches on the destination IP address only and rewrites it before
-processing it.
+L2DSR differs from L3DSR by not utilizing the DSCP field.  No iptables rule is
+created to change the destination IP address.  The LB changes the MAC address
+in the destination IP packet.  The restriction for L2DSR configurations is
+that the reals must all reside in the same local subnet since the MAC address
+is being changed.
 .PP
 The \fBdsrctl\fP command configures L3DSR by initializing loopback aliases
 and iptables entries that control how packets are handled on the machine.
@@ -35,9 +37,9 @@ of the L3DSR/L2DSR configurations.
 L3DSR/L2DSR configurations are stored in the \fI/etc/dsr.d\fP directory.  Any
 file that ends with \fI.conf\fP is considered a configuration file and is
 parsed for configuration information.  DSR configuration files essentially
-comprise key=value pairs where the key is the LB/VIP IP address and the
-value is the DSCP value.  The configuration file format is defined in
-\fBdsr.conf\fP(5).
+comprise key=value entries where the key is the LB/VIP IP address and the
+value is the DSCP value.  For L2DSR entries, just the VIP is given.  The
+configuration file format is defined in \fBdsr.conf\fP(5).
 .PP
 \fBdsrctl\fP works with both IPv4 and IPv6 addresses and they can be
 intermingled in the same \fI.conf\fP file.  The IPv4 address may be either
@@ -52,12 +54,12 @@ loopback aliases are configured on behalf of the DSR configuration and only
 modifies those rules and loopbacks.
 .PP
 It is an error to configure more than one DSR with the same DSCP value unless
-the DSCP value is related to one IPv4 address and one IPv6 address.  Two IPv4
-addresses with the same DSCP value or two IPv6 addresses with the same DSCP
-value result in an invalid configuration.  Neither the initial nor the duplicate
-DSRs are started when the \fIstart\fP action is called.
-\fBdsrctl\fP does not check whether the IPv4 and IPv6 addresses refer to the
-same VIP.
+the DSCP value is related to one IPv4 address and one IPv6 address.  Two
+IPv4 addresses with the same DSCP value or two IPv6 addresses with the same
+DSCP value result in an invalid configuration.  If duplicate DSCP values are
+detected, then neither the initial nor the duplicate DSRs are started when the
+\fIstart\fP action is called. \fBdsrctl\fP does not check whether the IPv4 and
+IPv6 addresses refer to the same VIP.
 .PP
 It is acceptable to configure multiple DSRs with the same IP address as long as
 they have different DSCP values.

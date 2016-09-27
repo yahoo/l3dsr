@@ -1,16 +1,19 @@
 #!/bin/ksh
 
-ScriptName="${0##*/}"
+# dsrctl controls and provides status about L2DSR and L3DSR VIPs.
+# The VIPs are configured in files contained in /etc/dsr.d.  VIPs
+# can be started, stopped, and checked.  Status can be displayed
+# for configured VIPs.
+#
+# Additional information can be found in the dsrctl(1) man page.
 
-CacheFile="/var/cache/dsrtools/dsr.cache"
-ConfigVariables=
+ScriptName=${0##*/}
+
 FakeAliasNum=0
 GotLoopbacksAlready=0
 GotConfAlready=0
 GotIptablesAlready=0
 NoHeader=no
-NoCacheFile=no
-CacheFileNeedsRewrite=no
 
 # We keep different maxlens for when we print with the -a option and when we
 # just print the configured DSRs.
@@ -19,24 +22,43 @@ IPMaxlenConf=0
 NameMaxlenAll=0
 NameMaxlenConf=0
 
-# All of the information about DSRs we start is kept in Dsr_*
-# associative arrays except the Dsr_ip indexed array which is used to
-# keep the order of what we start.  The Dsr_ip array element is always
-# the first item created when we start DSRs.
+# Set up patterns that we use to match configuration lines.
+IPv4Pat="+([\d]).+([\d]).+([\d]).+([\d])"
+IPv6Pat="+([[:xdigit:]:])"
+FqdnPat="+([[:alnum:].-])"
+DscpPat="+([[:xdigit:]xX])"
+SpPat="*([\s])"
+CmtPat="$SpPat*(#*)"
+
+L3dsrIPv4Pat=$SpPat$IPv4Pat$SpPat=$SpPat$DscpPat$CmtPat
+L3dsrIPv6Pat=$SpPat$IPv6Pat$SpPat=$SpPat$DscpPat$CmtPat
+L3dsrFqdnPat=$SpPat$FqdnPat$SpPat=$SpPat$DscpPat$CmtPat
+
+L2dsrIPv4Pat=$SpPat$IPv4Pat$CmtPat
+L2dsrIPv6Pat=$SpPat$IPv6Pat$CmtPat
+L2dsrFqdnPat=$SpPat$FqdnPat$CmtPat
+
+EmptyLinePat=$CmtPat
+
+# All of the information about DSRs we start is kept in the Dsr associative
+# array except the Dsr_keys indexed array which is used to keep the order of
+# what we start.
 #
-# The Dsr_* and Iptables_* associative arrays are indexed by "$vip,$dscp".
-# The IP is always the numeric version and the DSCP is always decimal.
-# If the .conf file provided a hex value for the DSCP, this is kept in
-# Dsr_dscp.
-# The Lo_* associative arrays are indexed by "$vip".
+# The Dsr and Iptables associative arrays are accessed by a key containing
+# the normalized numeric VIP and the normalized DSCP values.  The
+# makekey/makekey_normalized functions are always used to create the key from
+# the VIP/DSCP values.  Dsr also contains elements that are keyed by the FQDN
+# if used in the configuration file(s).
 #
-# Note that almost all of the Dsr_* arrays use the numeric IP and the DSCP
-# value as the key, not the FQDN and the DSCP value.  The exception is
-# Dsr_confip2numericip that is used to convert from the IP given in the config
-# file to the numeric IP used as a key for all of the others.  If the config
-# file only provides a numeric IP, then the key is the numeric IP.
+# The unmodified form of the VIP that is provided in the .conf file is stored
+# in Dsr[$key].vipname.
+# The unmodified form of the DSCP that is provided in the .conf file is stored
+# in Dsr[$key].dscp.
 #
-# state (Dsr_state, Lo_state, Iptables_state)
+# The Lo associative array is accessed only by the numeric normalized VIP.
+#
+# The following list shows all possible states.
+# state (Dsr[$key].state, Lo[$key].state, Iptables[$key].state)
 #     init
 #     error
 #     stopping
@@ -44,55 +66,68 @@ NameMaxlenConf=0
 #     starting
 #     started
 #     partial
+#
+# These are all of the possible types that are supported.
 # type
 #     l2dsr
 #     l3dsr
 #     iptbl (for iptables rules not related to DSR)
 #     loopb (for loopbacks not related to DSR)
 #
+# These are the sources where iptables rules and loopbacks are found.
 # dsrsrc
 #     configured
 #     discovered
 
 #
+# JFYI: This is how we check for existence of an element in an array
+#       (indexed or associative) in ksh/bash.
+#           [[ ${arr[key]+_} ]]   || print -- "notfound"
+#           [[ ! ${arr[key]+_} ]] || print -- "found"
 #
-# JFYI: This is how we check for existence of an array (indexed or
-#       associative) elt in ksh/bash.
-#           [ ${arr[key]+_} ]   || echo "notfound"
-#           [ ! ${arr[key]+_} ] || echo "found"
-#
 
-typeset -a Dsr_ip_dscp
-typeset -A Dsr_state			# current state of DSR
-typeset -A Dsr_indx			# indx of this DSR
-typeset -A Dsr_type			# type of DSR: l3dsr, l2dsr
-typeset -A Dsr_name			# configured VIP (numeric or fqdn)
-typeset -A Dsr_dscp			# configured DSCP value
-typeset -A Dsr_dsrsrc			# source of this DSR
-typeset -A Dsr_config_file		# where this DSR was configured
-typeset -A Dsr_config_file_lineno	# line number is this DSR in .conf file
-typeset -A Dsr_confip2numericip		# convert from .conf VIP to numeric VIP
+typeset -a Dsr_keys			# indexed array of keys
+typeset -A Dsr
+# Dsr subfields
+#     state				# current state of DSR
+#     indx				# indx of this DSR
+#     type				# type of DSR: l3dsr, l2dsr
+#     vipname				# configured VIP (fqdn, if provided)
+#     vipnumeric			# convert from .conf VIP to numeric VIP
+#     dscp				# configured DSCP value
+#     dsrsrc				# source of this DSR
+#     config_file			# where this DSR was configured
+#     config_file_lineno		# line number of this DSR in .conf file
 
-typeset -a Lo_ip
-typeset -A Lo_state
-typeset -A Lo_state_orig
-typeset -A Lo_indx
-typeset -A Lo_num
-typeset -A Lo_losrc
+typeset -a Lo_keys			# indexed array of keys
+typeset -A Lo
+# Lo subfields
+#     state				# state of the loopback
+#     state_orig			# original state of loopback
+#     indx				# indx of this loopback
+#     num				# loopback number
+#     vipname				# unmodified VIP name of loopback
+#     vipnumeric			# unmodified numeric VIP of loopback
+#     losrc				# source of this loopback (configured, discovered)
 
-typeset -a Iptables_ip_dscp
-typeset -A Iptables_state
-typeset -A Iptables_state_orig
-typeset -A Iptables_indx
-typeset -A Iptables_dscp
-typeset -A Iptables_iptsrc
+typeset -a Iptables_keys		# indexed array of keys
+typeset -A Iptables
+# Iptables subfields
+#     state				# state of the iptables rule
+#     state_orig			# original state of the iptables rule
+#     indx				# indx of the iptables rule
+#     dscp				# unmodifie DSCP val of iptables rule
+#     vipname				# unmodified VIP name of iptables rule
+#     vipnumeric			# unmodified numeric VIP of loopback
+#     iptsrc				# source of this iptables rule (configured, discovered)
+#     rulecnt				# number of identical iptables rules for this VIP
 
 Usage=$(cat <<EOF
-Usage: $ScriptName [-d <configdir>] [-f <configfile>] [-ahv] <action>
+Usage: $ScriptName [-d <configdir>] [-f <configfile>] [-ahnvx] <action>
        -a       For status, print status for all discovered loopbacks
-                and iptables rules, not just configured dsrs.
-       -d dir   Specify dsr config directory.  Defaults to /etc/dsr.d.
-       -f file  Read a single dsr config from this file.
+                and iptables rules, not just configured DSRs.
+       -d dir   Specify DSR config directory.  Defaults to /etc/dsr.d.
+       -f file  Read a single DSR config from this file.
                 The -d option is ignored if -f is used.
        -h       Print a usage statement and exit.
        -n       Don't actually perform the operations.  This option
@@ -101,30 +136,30 @@ Usage: $ScriptName [-d <configdir>] [-f <configfile>] [-ahv] <action>
        -x       Don't print the header.
        <action> Run the requested action.  Supported actions are:
                 check
-		restart
-		status
+                restart
+                status
                 start
                 stop
 EOF
 )
 
 # Print the cmd ($@) according to VerboseLevel.
-#     VerboseLevel==0: don't echo the cmd
-#     VerboseLevel==1: echo the cmd
-#     VerboseLevel>=2: echo the curdate and cmd
+#     VerboseLevel==0: don't print the cmd
+#     VerboseLevel==1: print the cmd
+#     VerboseLevel>=2: print the curdate and cmd
 # The first arg is always the verboselevel limit.
-# If $VerboseLevel <= $vlevel, then the remaining arguments are not printed.
+# If $VerboseLevel < $vlevel, then the remaining arguments are not printed.
 function vprt
 {
 	typeset vlevel
-	typeset curdate
+	typeset curdate=
 
-	vlevel="$1"
+	vlevel=$1
 	shift
 
-	[ $VerboseLevel -ge $vlevel ] || return 0
-	[ $VerboseLevel -lt 2 ] || curdate="$(date +%Y%m%d-%H:%M:%S): "
-	echo "$curdate$@" >&3
+	(( VerboseLevel >= vlevel )) || return 0
+	(( VerboseLevel < 2 )) || curdate="$(date +%Y%m%d-%H:%M:%S): "
+	print -u3 -- "$curdate$@"
 }
 
 # For convenience.
@@ -136,14 +171,14 @@ function vprt5 { vprt 5 "$@"; }
 
 function vrun
 {
-	typeset vlevel="$1"
+	typeset vlevel=$1
 	typeset rv=0
 
 	shift
 
 	vprt $vlevel "+$@"
-	[ $NoRun == yes ] || "$@" || rv=$?
-	[ $rv -eq 0 ] || vprt $vlevel "FAILED (rv=$rv): $@"
+	[[ $NoRun == yes ]] || "$@" || rv=$?
+	(( rv == 0 )) || vprt $vlevel "FAILED (rv=$rv): $@"
 
 	return $rv
 }
@@ -157,15 +192,15 @@ function vrun5 { vrun 5 "$@"; }
 
 function run
 {
-        # We default the verbose level to 1 for printing commands.
+	# We default the verbose level to 1 for printing commands.
 	vrun1 "$@"
 }
 
 # This function exits if the caller is not root.
 function check_root
 {
-	if [ $(id -u) != "0" ]; then
-		echo "You must be root to run this command." >&2
+	if (( $(id -u) != 0 )); then
+		print -u2 -- "You must be root to run this command."
 		exit 1
 	fi
 }
@@ -175,33 +210,27 @@ function check_root
 # address and return it.  If the name can't be converted, then return
 # "notfound".
 #
-function _fqdn_to_ipv4_addr
+function fqdn_to_ipv4_addr
 {
-	typeset fqdn="$1"
+	typeset fqdn=$1
 
-	typeset cmd ipaddrs numericip oifs
-	typeset -a numericips
+	typeset ipaddrs line numericip oifs
+	typeset -a lines
 
-	# $? is the return value of the rightmost cmd that fails or zero otherwise.
-	# This is usually the egrep.
-	ipaddrs=$(run getent ahosts "$fqdn" | run grep STREAM | run awk '{print $1}')
-	[ $? -eq 0 ] || return 1
+	ipaddrs=$(run getent ahosts "$fqdn") || return 1
 
-	oifs="$IFS"
-	IFS=$'\n' numericips=( $(echo "$ipaddrs") )
-	IFS="$oifs"
+	oifs=$IFS
+	IFS=$'\n'
+	lines=( $(print -- "$ipaddrs") )
+	IFS=$oifs
 
-	for numericip in "${numericips[@]}"
-	do
-		case "$numericip" in
-		  [0-9]*.[0-9]*.[0-9]*.[0-9]*)
-			echo "$numericip"
-			return 0
-			;;
-		esac
+	for line in "${lines[@]}"; do
+		[[ $line != *STREAM* ]] || continue
+		numericip=${line%% *}
+		[[ $numericip != $IPv4Pat ]] || { print -- "$numericip"; return 0; }
 	done
 
-	echo "notfound"
+	print -- "notfound"
 
 	return 0
 }
@@ -209,40 +238,147 @@ function _fqdn_to_ipv4_addr
 # Returns
 #   0 if the given address is an IPv4 address
 #   1 if the given address is an IPv6 address
-function _ipv4addr
+function ipv4addr
 {
-	case "$1" in
-	  *:*)  return 1;;
-	  *)    return 0;;
-	esac
+	[[ $1 != *:* ]] && return 0 || return 1
 }
 
 # Returns the address family (4/6) based on IP address.
 # Defaults to IPv4.
-function _addraf
+function addraf
 {
-	typeset vip="$1"
-	typeset af
+	typeset vip=$1
 
-	af=4
-	_ipv4addr "$vip" || af=6
+	typeset af=4
 
-	echo "$af"
+	ipv4addr "$vip" || af=6
+
+	print -- "$af"
 }
 
-# Given the VIP and DSCP, convert them into a key used for all
-# of the associative arrays (Dsr_*, Iptables_*).
+# Create a key from the given VIP and DSCP.
+# No normalization occurs in this function -- the VIP and DSCP
+# must already be normalized.
 function makekey
 {
-	typeset vip="$1"
-	typeset dscp="$2"
+	typeset normvip=$1
+	typeset normdscp=$2
 
-	echo "$vip,$dscp"
+	print -- "$normvip,$normdscp"
 }
 
-function cvt2dec
+# Extract the key, normvip, and normdscp from the given value.
+function extractkey
 {
-	echo $(("$1"))
+	typeset val=$1
+	nameref key=$2
+	nameref normvip=$3
+	nameref normdscp=$4
+
+	key=$val
+	normvip=${val%%,*}
+	normdscp=${val##*,}
+}
+
+# Given the VIP and DSCP, normalize them and then convert them into a key used
+# for the appropriate associative arrays (Dsr[$key].*, Iptables[$key].*).
+function makekey_normalized
+{
+	typeset vip=$1
+	typeset dscp=$2
+
+	typeset normdscp normvip
+
+	normvip=$(normalize_vip "$vip")
+	normdscp=$(normalize_dscp "$dscp")
+
+	makekey "$normvip" "$normdscp"
+}
+
+# Normalize the DSCP value.
+# If the DSCP is empty (L2DSR), then the empty string is returned.
+# Otherwise, the value is converted to decimal.
+function normalize_dscp
+{
+	typeset dscp=$1
+
+	[[ -n $dscp ]] || { print -- "$dscp"; return; }
+
+	print -- $(( $dscp ))
+}
+
+# Normalize an IPv6 address.
+#
+# The same IPv6 address, in some cases, can be written in different ways.
+#     Upper and lower case letters are allowed.
+#     Groups of 0s can be written with "::", but the "::" can be located in
+#         more than one place if there is more than one group of 0s.
+#     The 4 byte addresses are allowed leading zeroes.
+# normalize_ipv6 takes an IPv6 address and produces an unambiguous representation
+# of that address.  The format of the normalized IPv6 address has these
+# characteristics.
+#     Only lower case hex letters are used.
+#     Each group of hex digits is prefixed with sufficient 0s to create a 4
+#         character hex value
+#     Each group of hex digits is separated with a colon.
+#     The resulting normalized IPv6 address is a legal representation of the
+#         address.
+#
+# Note that the normalized address is only ever used internally -- it is
+# never printed except through debugging statements.
+function normalize_ipv6
+{
+	typeset ip=$1
+
+	typeset -a ipv6
+	typeset -a afterarr
+	typeset -a zero=(0 0 0 0 0 0 0 0)
+	typeset after before nzeroes
+
+	# Split the address into before and after strings.
+	# The before and after strings can be empty.
+	before=${ip%%::*}
+	after=${ip##$before::}
+
+	# If there's no ::, then before and after are the same.  There's no
+	# point in having both be the same, so we arbitrarily clear out the
+	# after string.
+	[[ $before != $after ]] || after=
+
+	# Split the before/after strings into arrays.
+	oifs=$IFS
+	IFS=:
+	ipv6=( $before )
+	afterarr=( $after )
+	IFS=$oifs
+
+	# Clear out the :: zeroes.
+	nzeroes=$(( 8 - ${#ipv6[@]} - ${#afterarr[@]} ))
+	(( nzeroes >= 0 )) || nzeroes=0
+	ipv6+=( ${zero[@]:0:$nzeroes} )
+
+	# Add the components after the ::.
+	ipv6+=( ${afterarr[@]} )
+
+	printf "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n" \
+		0x${ipv6[0]} 0x${ipv6[1]} 0x${ipv6[2]} 0x${ipv6[3]} \
+		0x${ipv6[4]} 0x${ipv6[5]} 0x${ipv6[6]} 0x${ipv6[7]}
+}
+
+# Normalize the given IP address so that comparisons we
+# make later on are not different based on upper/lower case
+# and leading zero choices.
+#
+# normalize_vip accepts IPv4 and IPv6 addresses as well as FQDNs.
+function normalize_vip
+{
+	typeset vip=$1
+
+	# Determine what kind of IP address it is: IPv4, IPv6, FQDN.
+	# For IPv4 and FQDN, just return what we were given.
+	[[ $vip != $IPv4Pat ]] || { print -- "$vip"; return; }
+	[[ $vip != $IPv6Pat ]] || { normalize_ipv6 "$vip"; return; }
+	print -- "$vip"
 }
 
 # Check whether the argument is numeric.  We accept decimal,
@@ -251,31 +387,33 @@ function cvt2dec
 # This function works back to ksh93.
 function isnumeric
 {
-	case "$1" in
+	case $1 in
 	  0)			return 0;;	# decimal
-	  +([1-9])*([0-9]))	return 0;;	# decimal
-	  0[xX]+([0-9a-fA-F]))	return 0;;	# hex
-	  0+([0-9]))		return 0;;	# octal
+	  +([1-9])*([\d]))	return 0;;	# decimal
+	  0[xX]+([[:xdigit:]]))	return 0;;	# hex
+	  0+([0-7]))		return 0;;	# octal
 	esac
 
 	return 1
 }
 
 
-function _emit_data
+# Emit a single line of output based on the provided arguments
+# and appropriate configuration values.
+function emit_data
 {
-	typeset dsrtype="$1"
-	typeset state="$2"
-	typeset name="$3"
-	typeset vip="$4"
-	typeset dscp="$5"
-	typeset loopback="$6"
-	typeset iptables="$7"
-	typeset src="$8"
+	typeset dsrtype=$1
+	typeset state=$2
+	typeset name=$3
+	typeset vipnumeric=$4
+	typeset dscp=$5
+	typeset loopback=$6
+	typeset iptables=$7
+	typeset src=$8
 
-	typeset ipmaxlen namemaxlen out
+	typeset ipmaxlen namemaxlen
 
-	if [ $AllOpt -eq 0 ]; then
+	if (( AllOpt == 0 )); then
 		namemaxlen=$NameMaxlenConf
 		ipmaxlen=$IPMaxlenConf
 	else
@@ -283,39 +421,35 @@ function _emit_data
 		ipmaxlen=$IPMaxlenAll
 	fi
 
-	[ "$dsrtype" != "=" ]  || dsrtype=$(_Dsr_header_sep 5)
-	[ "$state" != "=" ]    || state=$(_Dsr_header_sep 7)
-	[ "$name" != "=" ]     || name=$(_Dsr_header_sep $namemaxlen)
-	[ "$vip" != "=" ]      || vip=$(_Dsr_header_sep $ipmaxlen)
-	[ "$dscp" != "=" ]     || dscp=$(_Dsr_header_sep 4)
-	[ "$loopback" != "=" ] || loopback=$(_Dsr_header_sep 8)
-	[ "$iptables" != "=" ] || iptables=$(_Dsr_header_sep 8)
-	[ "$src" != "=" ]      || src=$(_Dsr_header_sep 4)
+	[[ $dsrtype    != = ]] || dsrtype=$(Dsr_header_sep 5)
+	[[ $state      != = ]] || state=$(Dsr_header_sep 7)
+	[[ $name       != = ]] || name=$(Dsr_header_sep $namemaxlen)
+	[[ $vipnumeric != = ]] || vipnumeric=$(Dsr_header_sep $ipmaxlen)
+	[[ $dscp       != = ]] || dscp=$(Dsr_header_sep 4)
+	[[ $loopback   != = ]] || loopback=$(Dsr_header_sep 8)
+	[[ $iptables   != = ]] || iptables=$(Dsr_header_sep 8)
+	[[ $src        != = ]] || src=$(Dsr_header_sep 4)
 
-	if [ $AllOpt -eq 0 ]; then
-		out=$(printf "%-5s %-7s %-${namemaxlen}s  %-${ipmaxlen}s  %-4s %-8s %-8s\n" \
+	if (( AllOpt == 0 )); then
+		printf "%-5s %-7s %-${namemaxlen}s  %-${ipmaxlen}s  %-4s %-8s %s\n" \
 			"$dsrtype" \
 			"$state" \
 			"$name" \
-			"$vip" \
+			"$vipnumeric" \
 			"$dscp" \
 			"$loopback" \
-			"$iptables" | \
-		      sed -e 's/[ ]*$//')
+			"$iptables"
 	else
-		out=$(printf "%-5s %-7s %-${namemaxlen}s  %-${ipmaxlen}s  %-4s %-8s %-8s %-4s\n" \
+		printf "%-5s %-7s %-${namemaxlen}s  %-${ipmaxlen}s  %-4s %-8s %-8s %s\n" \
 			"$dsrtype" \
 			"$state" \
 			"$name" \
-			"$vip" \
+			"$vipnumeric" \
 			"$dscp" \
 			"$loopback" \
 			"$iptables" \
-			"$src" | \
-		      sed -e 's/[ ]*$//')
+			"$src"
 	fi
-
-	echo "$out"
 }
 
 # =======================================================================
@@ -324,318 +458,423 @@ function _emit_data
 
 #
 # Determine what kind of IP address we have and then initialize the given DSR
-# entry.  The Dsr_* data structures remain unchanged if the new DSR conflicts.
+# entry.  The Dsr[$key].* data structures remain unchanged if the new DSR
+# conflicts or is otherwise invalid.
 #
-function _Dsr_init
-{
-	typeset dsrsrc="$1"
-	typeset vip="$2"
-	typeset dscp="$3"
-	typeset config_file="$4"
-	typeset lineno="$5"
+# Returns
+#     0 success
+#     1 failure
 
-	typeset fqdn indx key numericip dscp_dec
+function Dsr_init
+{
+	typeset dsrsrc=$1
+	typeset vip=$2
+	typeset dscp=$3
+	typeset config_file=$4
+	typeset lineno=$5
+
+	typeset fqdn indx key key2 normdscp vipnumeric
 
 	# We accept both FQDN names and numeric IPs.
 	#
-        # If we get a FQDN, then it is used, by historical convention, only
-        # for the IPv4 address even if an IPv6 address exists for the FQDN.
+	# If we get a FQDN, then it is used, by historical convention, only
+	# for the IPv4 address even if an IPv6 address exists for the FQDN.
 	#
-        # You can still have an IPv6 address, but it must be given as an IPv6
-        # address.
-	case "$vip" in
-	  [0-9]*.[0-9]*.[0-9]*.[0-9]*)
-		# IPv4 address
-		numericip="$vip"
-		fqdn="$vip"
-		;;
-	  *:*)
-		# IPv6 address
-		numericip="$vip"
-		fqdn="$vip"
-		;;
-	  *)
+	# You can still have an IPv6 address, but it must be given as an IPv6
+	# address.
+	if [[ $vip == $IPv4Pat ]]; then
+		vipnumeric=$vip
+		fqdn=$vip
+	elif [[ $vip == $IPv6Pat ]]; then
+		vipnumeric=$vip
+		fqdn=$vipnumeric
+	else
 		# FQDN
-		numericip=$(_fqdn_to_ipv4_addr "$vip" 2>&1)
-		[ $? -eq 0 ] || { echo "$numericip"; return 1; }
-
-		if [ "$numericip" == "notfound" ]; then
-			echo "Cannot convert fqdn \"$vip\" to an IPv4 address."
+		vipnumeric=$(fqdn_to_ipv4_addr "$vip" 2>&1)
+		if (( $? != 0 )) || [[ $vipnumeric == notfound ]]; then
+			print -- "Cannot convert fqdn \"$vip\" to an IPv4 address."
 			return 1
 		fi
 
-		fqdn="$vip"
-		;;
-	esac
+		fqdn=$vip
+	fi
 
-	[ -z "$dscp" ] && dscp_dec= || dscp_dec=$(cvt2dec "$dscp")
-
-	_Dsr_validate_dsr "$fqdn" "$numericip" "$dscp" "$config_file" "$lineno" ||
-		{ [ $? -eq 1 ] && return 0 || return $?; }
+	# Determine if this DSR is valid, duplicate, etc.
+	Dsr_validate_dsr "$fqdn" "$vipnumeric" "$dscp" "$config_file" "$lineno" || \
+		{ (( $? == 1 )) && return 0 || return $?; }
 
 	# Now we create a new Dsr.
-	indx=${#Dsr_ip_dscp[@]}
+	indx=${#Dsr_keys[@]}
 
-	[ ${#numericip} -le $IPMaxlenConf ] || IPMaxlenConf=${#numericip}
-	[ ${#numericip} -le $IPMaxlenAll ]  || IPMaxlenAll=${#numericip}
-	[ ${#fqdn} -le $NameMaxlenConf ]    || NameMaxlenConf=${#fqdn}
-	[ ${#fqdn} -le $NameMaxlenAll ]     || NameMaxlenAll=${#fqdn}
+	(( ${#vipnumeric} <= IPMaxlenConf )) || IPMaxlenConf=${#vipnumeric}
+	(( ${#vipnumeric} <= IPMaxlenAll ))  || IPMaxlenAll=${#vipnumeric}
+	(( ${#fqdn} <= NameMaxlenConf ))     || NameMaxlenConf=${#fqdn}
+	(( ${#fqdn} <= NameMaxlenAll ))      || NameMaxlenAll=${#fqdn}
 
-	key=$(makekey "$numericip" "$dscp_dec")
-	Dsr_ip_dscp[$indx]="$key"
-	Dsr_indx[$key]="$indx"
-	Dsr_state[$key]="init"
-	Dsr_dscp[$key]="$dscp"
-	Dsr_dsrsrc[$key]="$dsrsrc"
-	Dsr_name[$key]="$fqdn"
+	# Create the key for this DSR.
+	key=$(makekey_normalized "$vipnumeric" "$dscp")
 
-	Dsr_confip2numericip[$key]="$numericip"
-	key2=$(makekey "$fqdn" "$dscp_dec")
-	[ ${Dsr_confip2numericip[$key2]+_} ] || Dsr_confip2numericip[$key2]="$numericip"
+	Dsr_keys[$indx]=$key
+	Dsr[$key].indx=$indx
+	Dsr[$key].state=init
+	Dsr[$key].dscp=$dscp
+	Dsr[$key].dsrsrc=$dsrsrc
+	Dsr[$key].vipname=$fqdn
+	Dsr[$key].vipnumeric=$vipnumeric
 
-	[ -n "$dscp" ] &&
-		Dsr_type[$key]="l3dsr" ||
-		Dsr_type[$key]="l2dsr"
+	# It is sometimes more convenient to look up a DSR using its FQDN, so
+	# we allow a second key to be created that combines the FQDN and the
+	# normalized DSCP.  Without this, we would need to convert the FQDN
+	# to its IP address multiple times.  It's faster to do the conversion
+	# once and provide a lookup.
+	normdscp=$(normalize_dscp "$dscp")
+	key2=$(makekey "$fqdn" "$normdscp")
+	[[ ${Dsr[$key2].vipnumeric+_} ]] || Dsr[$key2].vipnumeric=$vipnumeric
 
-	Dsr_config_file[$key]="$config_file"
-	Dsr_config_file_lineno[$key]="$lineno"
+	[[ -n $dscp ]] && \
+		Dsr[$key].type=l3dsr || \
+		Dsr[$key].type=l2dsr
+
+	Dsr[$key].config_file=$config_file
+	Dsr[$key].config_file_lineno=$lineno
 
 	return 0
+}
+
+# Validate the config input line.
+#
+# The purpose of this function is to look at the line and verify that it could
+# be a valid configuration line, at least lexically.  We're not performing
+# exhaustive/semantic validation.  We'd just like to let the caller know that,
+# for example, using /etc/passwd as an input is not useful.
+#
+# Returns
+#     0   Valid, but does not contain VIP.
+#     1   Valid and contains proper VIP.
+#     2   Not a valid VIP line.
+#
+# If the line is invalid, the reason is printed.
+# If the line is valid, but contains no VIP, then an empty line is printed.
+#     These are empty and comment lines.
+# If the line is valid, and contains a VIP, then the line is printed without
+#     spaces and comments.
+function Dsr_validate_conf_line
+{
+	typeset line=$1
+
+	typeset newline
+
+	# Check for empty lines and lines that only contain comments.
+	if [[ $line == $EmptyLinePat ]]; then
+		newline=
+		vprt3 "====== Lexical analysis recognizes empty/comment line ($line)"
+		print  -- "$newline"
+		return 0
+	fi
+
+	# Check for L3DSR IPv4 numeric address
+	if [[ $line == $L3dsrIPv4Pat ]]; then
+		newline=${.sh.match[2]}.${.sh.match[3]}.${.sh.match[4]}.${.sh.match[5]}=${.sh.match[8]}
+		vprt3 "====== Lexical analysis recognizes L3DSR IPv4 ($newline)"
+		print -- "$newline"
+		return 1
+	fi
+
+	# Check for L3DSR IPv6 address
+	if [[ $line == $L3dsrIPv6Pat ]]; then
+		newline=${.sh.match[2]}=${.sh.match[5]}
+		vprt3 "====== Lexical analysis recognizes L3DSR IPv6 ($newline)"
+		print -- "$newline"
+		return 1
+	fi
+
+	# Check for L3DSR FQDN
+	#     This regex allows IPv4 addresses such as:
+	#         124.40.n50.34
+	#     Lexically, they are correct and not caught here.
+	if [[ $line == $L3dsrFqdnPat ]]; then
+		newline=${.sh.match[2]}=${.sh.match[5]}
+		vprt3 "====== Lexical analysis recognizes L3DSR FQDN ($newline)"
+		print -- "$newline"
+		return 1
+	fi
+
+	# Check for L2DSR IPv4 numeric address
+	if [[ $line == $L2dsrIPv4Pat ]]; then
+		newline=${.sh.match[2]}.${.sh.match[3]}.${.sh.match[4]}.${.sh.match[5]}
+		vprt3 "====== Lexical analysis recognizes L2DSR IPv4 ($newline)"
+		print -- "$newline"
+		return 1
+	fi
+
+	# Check for L2DSR IPv6 address
+	if [[ $line == $L2dsrIPv6Pat ]]; then
+		newline=${.sh.match[2]}
+		vprt3 "====== Lexical analysis recognizes L2DSR IPv6 ($newline)"
+		print -- "$newline"
+		return 1
+	fi
+
+	# Check for L2DSR FQDN
+	if [[ $line == $L2dsrFqdnPat ]]; then
+		newline=${.sh.match[2]}
+		vprt3 "====== Lexical analysis recognizes L2DSR FQDN ($newline)"
+		print -- "$newline"
+		return 1
+	fi
+
+	print -- "Unrecognized VIP/DSCP."
+	return 2
 }
 
 #
 # Read the dsr configuration file.
 #
-function _Dsr_read_config_file
+function Dsr_read_config_file
 {
-	typeset config_file="$1"
+	typeset config_file=$1
 
-	typeset confout dscp dscp_dec vip key line lines lineno name oifs rv=0
-
-	lines=$(run cat "$config_file" || rv=$?)
-	[ $rv -eq 0 ] || { echo "Can't read $config_file."; return 1; }
+	typeset dscp key line lineno linevalid name rv=0
+	typeset str validaterv validline vip vipnumeric
 
 	lineno=0
-	while read line; do
-		((lineno++))
+	while IFS= read -r line; do
+		(( lineno++ ))
 
-		# These cmds are rarely interesting, so you have to request a
-		# higher VerboseLevel to get them to print.
-		line=$(vrun5 echo "$line" | \
-		       vrun5 sed -e '/^[ \t]*#/d' -e 's/[ \t]*#.*//' -e '/^[ \t]*$/d' -e 's/[ \t]*//g')
-		[ $? -eq 0 ] || return 1
+		validline=$(Dsr_validate_conf_line "$line")
+		validaterv=$?
 
-		[ -n "$line" ] || continue;
+		# These are lines that are empty or only contain comments.
+		(( validaterv != 0 )) || continue;
 
-		case "$line" in
+		if (( validaterv == 2 )); then
+			# These are invalid lines.
+			print -- "Invalid config line at $config_file, line $lineno.  $validline"
+			print -- "Aborting."
+			exit 1
+		fi
+
+		# Use validline here since it's preprocessed to an easier-to-handle form
+		case $validline in
 		  Version*)
-			# This is an ordinary variable line.
-			name=${line%%=*}
-			eval "$name=\"${line##$name=}\""
+			# This is the Version line.
+			name=${validline%%=*}
+			Version=${validline##$name=}
 			;;
 		  *)
-			# This is a DSR line.
-			vip=${line%%=*}
-			case "$line" in
-			  *=*)  dscp=${line##$vip=};;
-			  *)    dscp=;;
-			esac
+			# Split the line into VIP and DSCP.
+			vip=${validline%%=*}
+			dscp=
+			[[ $validline != *=* ]] || dscp=${validline##$vip=}
 
-			_Dsr_init "configured" "$vip" "$dscp" "$config_file" "$lineno" ||
+			# Initialize the DSR.
+			Dsr_init "configured" "$vip" "$dscp" "$config_file" "$lineno" || \
 				{ rv=1; continue; }
 
-			[ -z "$dscp" ] && dscp_dec= || dscp_dec=$(cvt2dec "$dscp")
-			key=$(makekey "$vip" "$dscp_dec")
-			_Lo_init "configured" "${Dsr_confip2numericip[$key]}" "" || rv=1
+			# The key created here by makekey takes a VIP that is
+			# one of these.  The Dsr_init above created associative
+			# array elements for both types of keys.
+			#     FQDN, if that's what was provided
+			#     Otherwise, the provided numeric VIP
+			key=$(makekey_normalized "$vip" "$dscp")
+			vipnumeric=${Dsr[$key].vipnumeric}
 
-			[ -z "$dscp" ] ||
-				_Iptables_init "configured" \
-				               "${Dsr_confip2numericip[$key]}" \
+			Lo_init configured "$vipnumeric" "$vip" "" || rv=1
+
+			[[ -z $dscp ]] || \
+				Iptables_init configured \
+				               "$vipnumeric" \
+				               "$vip" \
 				               "$dscp" || rv=1
 
 			;;
 		esac
-	done < <(echo "$lines")
+	done < $config_file
 
 	return $rv
 }
 
 #
-# Read the configuration file and place the variables defined there into the
-# environment.
+# Read the configuration file.
 # Look first for $ConfigFile.  It it's provided, then only work with that file.
 # If there is no $ConfigFile, then look in $ConfigDir and load all of the
 # *.conf files there.
 #
-function _Dsr_read_configuration
+function Dsr_read_configuration
 {
 	typeset f oifs rv=0 v
 	typeset -a files
 
-	[ $GotConfAlready -eq 0 ] || return 0
+	(( GotConfAlready == 0 )) || return 0
 
 	GotConfAlready=1
 
-	if [ -n "$ConfigFile" ]; then
-		[ -r "$ConfigFile" ] || \
-			{ echo "Cannot find the configuration file ($ConfigFile)."; return 1; }
+	if [[ -n $ConfigFile ]]; then
+		[[ -r "$ConfigFile" ]] || \
+			{ print -- "Cannot read the configuration file ($ConfigFile)."; return 1; }
 
 		vprt2 "===== Loading config file $ConfigFile"
-		_Dsr_read_config_file "$ConfigFile" || return 1
+		Dsr_read_config_file "$ConfigFile" || return 1
 	else
-		if [ ! -d "$ConfigDir" ]; then
-			echo "Cannot find the configuration directory ($ConfigDir)."
+		if [[ ! -d "$ConfigDir" ]]; then
+			print -- "Cannot find the configuration directory ($ConfigDir)."
 			return 0
 		fi
 
-		oifs="$IFS"
-		IFS=$'\n' files=( $(run find -L "$ConfigDir" -type f -name \*.conf | run sort) )
+		oifs=$IFS
+		IFS=$'\n'
+		files=( $(run find -L "$ConfigDir" -type f -name \*.conf | run sort) )
 		rv=$?
-		IFS="$oifs"
-		[ $rv -eq 0 ] || \
-			{ echo "Cannot get file list from $ConfigDir."; return 1; }
+		IFS=$oifs
+		(( rv == 0 )) || \
+			{ print -- "Cannot get file list from \"$ConfigDir\"."; return 1; }
 
 		for f in "${files[@]}"; do
-			vprt2 "===== Loading config file $f"
-			_Dsr_read_config_file "$f" || return 1
+			vprt2 "===== Loading config file ($f)"
+			Dsr_read_config_file "$f" || return 1
 		done
 	fi
 
-	# Ensure that we have set all of the package variables that we'll be using.
-	for v in $ConfigVariables; do
-		if ! (eval echo \${$v?} > /dev/null 2>&1); then
-			echo "Failed to set all configuration variables."
-			echo "Variable \"$v\" not found."
-			return 1
-		fi
-	done
-
 	return 0
 }
-function _Dsr_header_sep
+
+# Create a header separator ('=') with given width.
+function Dsr_header_sep
 {
-	typeset i="$1"
-	typeset out=
-
-	for ((; i>0; i--)) do
-		out+="="
-	done
-
-	printf "$out"
+	printf '=%.0s' {1..$1}
 }
 
-function _Dsr_print_dsr_header
+# Print the header.
+function Dsr_print_dsr_header
 {
-	_emit_data "type" "state" "name" "ipaddr" "dscp" "loopback" "iptables" "src"
-	_emit_data "=" "=" "=" "=" "=" "=" "=" "="
+	emit_data type state name ipaddr dscp loopback iptables src
+	emit_data =    =     =    =      =    =        =        =
 }
 
-function _Dsr_calculate_state
+# Calculate the state of a DSR based on the state of the loopbacks and
+# iptables rules.
+# A DSR can be in these states.
+#     stopped
+#     partial
+#     started
+#     error
+function Dsr_calculate_state
 {
-	typeset vip="$1"
-	typeset dscp="$2"
+	typeset normvip=$1
+	typeset normdscp=$2
 
-	typeset startedcnt=0 state
+	typeset key startedcnt=0 state
 
-	key=$(makekey "$vip" "$dscp")
-	if _Dsr_l3dsr "$vip" "$dscp"; then
-		[ "${Lo_state[$vip]}" != "started" ] || (( startedcnt++ )) || true
-		[ "${Iptables_state[$key]}" != "started" ] || (( startedcnt++ )) || true
+	key=$(makekey "$normvip" "$normdscp")
+	if Dsr_l3dsr "$normvip" "$normdscp"; then
+		[[ ${Lo[$normvip].state} != started ]] || \
+			(( startedcnt++ )) || :
+		[[ ${Iptables[$key].state} != started ]] || \
+			(( startedcnt++ )) || :
 
-		case "$startedcnt" in
-		  0)   state="stopped";;
-		  1)   state="partial";;
-		  2)   state="started";;
-		  *)   state="error";;
+		case $startedcnt in
+		  0)   state=stopped;;
+		  1)   state=partial;;
+		  2)   state=started;;
+		  *)   state=error;;
 		esac
 	else
-		state="stopped"
-		[ "${Lo_state[$vip]}" != "started" ] || state="started"
-		[ "${Iptables_state[$key]}" != "started" ] || state="error"
+		state=stopped
+		[[ ${Lo[$normvip].state} != started ]] || state=started
+		[[ ! ${Iptables[$key].state+_} ]] || \
+			[[ ${Iptables[$key].state} != started ]] || \
+			state=error
 	fi
 
-	echo "$state"
+	print -- "$state"
 }
 
-function _Dsr_update_state
+# Update the state for all DSRs.
+function Dsr_update_state
 {
-	typeset dscp i vip key
+	typeset i key normdscp normvip
 
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
-		Dsr_state[$key]=$(_Dsr_calculate_state "$vip" "$dscp")
+	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
+		normvip=${Dsr_keys[$i]%%,*}
+		normdscp=${Dsr_keys[$i]##*,}
+		key=$(makekey "$normvip" "$normdscp")
+		Dsr[$key].state=$(Dsr_calculate_state "$normvip" "$normdscp")
 	done
 }
 
-function _Dsr_init_discovered_dsrs
+# Initialize a Dsr struct for all discovered DSRs.
+function Dsr_init_discovered_dsrs
 {
-	typeset dscp i vip key
+	typeset dscp i key normdscp normvip vip
 
-	for ((i=0; i<${#Iptables_ip_dscp[@]}; i++)) do
-		vip=${Iptables_ip_dscp[$i]%%,*}
-		dscp=${Iptables_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
+		normvip=${Iptables_keys[$i]%%,*}
+		normdscp=${Iptables_keys[$i]##*,}
+		key=$(makekey "$normvip" "$normdscp")
+		vip=${Iptables[$key].vipname}
+		dscp=${Iptables[$key].dscp}
 
-		! _Dsr_is_configured_dsr "$vip" "$dscp" || continue
-		[ "${Iptables_iptsrc[$key]}" == "discovered" ] || continue
-		[ ${Lo_indx[$vip]+_} ] || continue
-		[ "${Lo_losrc[$vip]}" == "discovered" ] || continue
+		! Dsr_is_configured_dsr "$normvip" "$normdscp" || continue
+		[[ ${Iptables[$key].iptsrc} == discovered ]] || continue
+		[[ ${Lo[$normvip].indx+_} ]] || continue
+		[[ ${Lo[$normvip].losrc} == discovered ]] || continue
 
-		_Dsr_init "discovered" "$vip" "$dscp" "none" "none" ||
-				{ rv=1; continue; }
+		# We choose to use the normalized DSCP for discovered iptables
+		# entries.
+		Dsr_init discovered "$vip" "$normdscp" none none
 	done
 }
 
 #
-# Print a single DSR given its indx into Dsr_ip.
+# Print a single DSR given its indx into Dsr_keys.
 #
-function _Dsr_print_one_dsr
+function Dsr_print_one_dsr
 {
-	typeset i="$1"
+	typeset i=$1
 
-	typeset af dscp vip iptout key l3dsr loout src state dsrtype
+	typeset af dscp dsrtype iptout key loout normdscp normvip src state vip
 
-	vip=${Dsr_ip_dscp[$i]%%,*}
-	dscp=${Dsr_ip_dscp[$i]##*,}
-	key=$(makekey "$vip" "$dscp")
-	af=$(_addraf "$vip")
+	extractkey "${Dsr_keys[$i]}" key normvip normdscp
+	af=$(addraf "$normvip")
 
-	vprt2 "====== Checking configured DSR $vip=${Dsr_dscp[$key]}"
+	vip=${Dsr[$key].vipname}
 
-	if [ "${Lo_state[$vip]}" == "started" ]; then
-		[ "$af" == "4" ] || loout="lo"
-		[ "$af" == "6" ] || loout="lo:${Lo_num[$vip]}"
+	vprt2 "====== Checking configured DSR $vip=${Dsr[$key].dscp}"
+
+	if [[ ${Lo[$normvip].state} == started ]]; then
+		(( af == 4 )) || loout=lo
+		(( af == 6 )) || loout=lo:${Lo[$normvip].num}
 	else
-		loout="--"
+		loout=--
 	fi
 
-	[ "${Iptables_state[$key]}" == "started" ] || iptout="--"
-	[ "${Iptables_state[$key]}" != "started" ] || iptout="up"
+	iptout=--
+	[[ ! ${Iptables[$key].state+_} ]] || \
+		[[ ${Iptables[$key].state} != started ]] || \
+		iptout=up
 
-	[ "${Dsr_dsrsrc[$key]}" == "configured" ] || src="disc"
-	[ "${Dsr_dsrsrc[$key]}" != "configured" ] || src="conf"
+	[[ ${Dsr[$key].dsrsrc} == configured ]] || src=disc
+	[[ ${Dsr[$key].dsrsrc} != configured ]] || src=conf
 
-	state=$(_Dsr_calculate_state "$vip" "$dscp")
-	if _Dsr_l3dsr "$vip" "$dscp"; then
-		dsrtype="l3dsr"
+	state=$(Dsr_calculate_state "$normvip" "$normdscp")
+	if Dsr_l3dsr "$normvip" "$normdscp"; then
+		dsrtype=l3dsr
 
 		# We always print the value provided in the .conf
 		# file, not any possible conversion to decimal.
-		dscp="${Dsr_dscp[$key]}"
+		dscp=${Dsr[$key].dscp}
 	else
-		dsrtype="l2dsr"
-		dscp="--"
+		dsrtype=l2dsr
+		dscp=--
 	fi
-	_emit_data "$dsrtype" \
-		   "$state" \
-		   "${Dsr_name[$key]}" \
-		   "$vip" \
-		   "$dscp" \
-		   "$loout" \
-		   "$iptout" \
-		   "$src"
+	emit_data "$dsrtype" \
+		  "$state" \
+		  "${Dsr[$key].vipname}" \
+		  "${Dsr[$key].vipnumeric}" \
+		  "$dscp" \
+		  "$loout" \
+		  "$iptout" \
+		  "$src"
 
 	return 0
 }
@@ -644,37 +883,37 @@ function _Dsr_print_one_dsr
 # If something goes wrong while starting the DSRs, we need to undo (stop)
 # all of the DSRs we just started.  This function does that cleanup.
 #
-function _Dsr_restore_dsrs_to_orig_state
+function Dsr_restore_dsrs_to_orig_state
 {
-	typeset dscp i vip key save_nofail
+	typeset i key normdscp normvip key save_nofail vip
 
-	_Lo_reread_loopbacks
-	_Iptables_reread_iptables
+	Lo_reread_loopbacks
+	Iptables_reread_iptables
 
 	# We try as hard as we can to stop the DSRs even if we have
 	# some failures.
-	save_nofail="$NoFail"
+	save_nofail=$NoFail
 	No_Fail=1
 
 	# Remove all of the DSRs that we started.
 	#
-	for ((i=${#Dsr_ip_dscp[@]}-1; i>=0; i--)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=${#Dsr_keys[@]}-1; i>=0; i--)); do
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 
-                # Skip DSRs that weren't read from the config files because if
-                # they didn't come from the config files, then we didn't start
-                # them.
-		[ ${Dsr_dsrsrc[$key]} == "configured" ] || continue
+		# Skip DSRs that weren't read from the config files because if
+		# they didn't come from the config files, then we didn't start
+		# them.
+		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 
+		vip=${Dsr[$key].vipname}
 		vprt2 "====== Restoring DSR $vip"
 
-		_Iptables_restore_orig_state "$vip" "$dscp"
-		_Lo_restore_orig_state "$vip"
+		! Dsr_l3dsr "$normvip" "$normdscp" || \
+			Iptables_restore_orig_state "$normvip" "$normdscp"
+		Lo_restore_orig_state "$normvip"
 	done
 
-	NoFail="$save_nofail"
+	NoFail=$save_nofail
 
 	return 0
 }
@@ -683,53 +922,32 @@ function _Dsr_restore_dsrs_to_orig_state
 #   0 if the given ipaddr refers to an L3DSR DSR
 #   1 if the given ipaddr refers to an L2DSR DSR
 #
-function _Dsr_l3dsr
+function Dsr_l3dsr
 {
-	typeset vip="$1"
-	typeset dscp="$2"
+	typeset normvip=$1
+	typeset normdscp=$2
 
-	typeset key
+	typeset key=$(makekey "$normvip" "$normdscp")
 
-	key=$(makekey "$vip" "$dscp")
-	[ "${Dsr_type[$key]}" != "l3dsr" ] || return 0
-	return 1
-}
-
-# Returns count of configured IPv6 DSRs.
-function _Dsr_configured_ipv6_dsr_count
-{
-	typeset i vip dscp ipv6dsrs=0
-
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-
-		_Dsr_ip_exists "$vip" "$dscp" "$i" || continue
-		_Dsr_is_configured_dsr "$vip" "$dscp" || continue
-		_ipv4addr "$vip" || continue
-
-		((ipv6dsrs++))
-	done
-
-	echo "$ipv6dsrs"
+	[[ ${Dsr[$key].type} == l3dsr ]] || return 1
+	return 0
 }
 
 # Returns count of configured DSRs (both IPv4 and IPv6).
-function _Dsr_configured_dsr_count
+function Dsr_configured_dsr_count
 {
-	typeset i vip dscp dsrcount=0
+	typeset i normdscp normvip dsrcount=0
 
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
+	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 
-		_Dsr_ip_exists "$vip" "$dscp" "$i" || continue
-		_Dsr_is_configured_dsr "$vip" "$dscp" || continue
+		Dsr_ip_exists "$normvip" "$normdscp" "$i" || continue
+		Dsr_is_configured_dsr "$normvip" "$normdscp" || continue
 
-		((dsrcount++))
+		(( dsrcount++ ))
 	done
 
-	echo "$dsrcount"
+	print -- "$dsrcount"
 }
 
 #
@@ -738,29 +956,29 @@ function _Dsr_configured_dsr_count
 #   0 if the DSCP value is valid
 #   1 if the DSCP value is invalid
 #
-function _Dsr_validate_dscp
+function Dsr_validate_dscp
 {
-	typeset dscp="$1"
-	typeset config_file="$2"
-	typeset lineno="$3"
+	typeset dscp=$1
+	typeset config_file=$2
+	typeset lineno=$3
 
 	typeset str rv=0
 
 	# Empty DSCPs just mean L2DSR, so they're valid.
-	[ -n "$dscp" ] || return 0
+	[[ -n $dscp ]] || return 0
 
 	# First, test if dscp is numeric.
 	if isnumeric "$dscp"; then
-		if [ $(cvt2dec "$dscp") -gt 63 ]; then
-			str="Invalid DSCP value at $config_file, line $lineno.  "
-			str+="\"$dscp\" too large."
-			echo "$str"
+		if (( $(normalize_dscp "$dscp") > 63 )); then
+			str="Invalid DSCP value at \"$config_file\", line $lineno.  "
+			str+="\"$dscp\" too large (max=63)."
+			print -- "$str"
 			rv=1
 		fi
 	else
-		str="Invalid DSCP value at $config_file, line $lineno.  "
-		str+="\"$dscp\" is not an integer."
-		echo "$str"
+		str="Invalid DSCP value at \"$config_file\", line $lineno.  "
+		str+="\"$dscp\" is not an expected number."
+		print -- "$str"
 		rv=1
 	fi
 
@@ -768,72 +986,77 @@ function _Dsr_validate_dscp
 }
 
 # Validate the DSR.
+# The vipnumeric and dscp arguments are not normalized.
+#
 # Returns 0 if everything was OK.
 # Returns 1 if duplicate DSRs are found.
 # Returns 2 otherwise.
-function _Dsr_validate_dsr
+function Dsr_validate_dsr
 {
-	typeset fqdn="$1"
-	typeset vip="$2"
-	typeset dscp="$3"
-	typeset config_file="$4"
-	typeset lineno="$5"
+	typeset fqdn=$1
+	typeset vipnumeric=$2
+	typeset dscp=$3
+	typeset config_file=$4
+	typeset lineno=$5
 
-        typeset af dscp_dec dupindx dupip dupdsrtype dupdscp key previp
-        typeset prevdsrtype prevdscp
+	typeset af dupdscp dupdsrtype dupindx key normdscp normvip
+	typeset prevdscp prevdsrtype previp prevkey str
 
-	_Dsr_validate_dscp "$dscp" "$config_file" "$lineno" || return 2
+	Dsr_validate_dscp "$dscp" "$config_file" "$lineno" || return 2
 
-	key=$(makekey "$vip" "$dscp")
+	normvip=$(normalize_vip "$vipnumeric")
+	normdscp=$(normalize_dscp $dscp)
 
-	dupindx=$(_Dsr_find_configured_dsr_by_ip_and_dscp "$vip" "$dscp")
-	if [ "$dupindx" != "notfound" ]; then
+	if Dsr_find_configured_dsr_by_ip_and_dscp "$normvip" "$normdscp"; then
 		# We have found an exact duplicate.
-                echo "Duplicate DSRs found for $vip."
-                _Dsr_l3dsr "$vip" "$dscp" && dupdsrtype="L3DSR" || dupdsrtype="L2DSR"
+		print -- "Duplicate DSRs found for $vipnumeric."
+		Dsr_l3dsr "$normvip" "$normdscp" && dupdsrtype=L3DSR || dupdsrtype=L2DSR
 
-                str="- Prev: $dupdsrtype at "
-                str+="${Dsr_config_file[$key]}, "
-                str+="line ${Dsr_config_file_lineno[$key]}."
-                echo "$str"
+		key=$(makekey "$normvip" "$normdscp")
 
-                str="- Dup:  $dupdsrtype at $config_file, line $lineno."
-                echo "$str"
+		str="- Prev: $dupdsrtype at "
+		str+="\"${Dsr[$key].config_file}\", "
+		str+="line ${Dsr[$key].config_file_lineno}."
+		print -- "$str"
 
-                return 1
+		str="- Dup:  $dupdsrtype at \"$config_file\", line $lineno."
+		print -- "$str"
+
+		return 1
 	fi
 
 	# Check for DSRs that have the same DSCP, but a different IP.
-	af=$(_addraf "$vip")
-	dupindx=$(_Dsr_find_configured_dsr_by_dscp "$dscp" "$af")
-	if [ "$dupindx" != "notfound" ]; then
-		previp=${Dsr_ip_dscp[$dupindx]%%,*}
+	af=$(addraf "$normvip")
+	dupindx=$(Dsr_find_configured_dsr_by_dscp "$normdscp" "$af")
+	if [[ $dupindx != notfound ]]; then
+		previp=${Dsr_keys[$dupindx]%%,*}
 
-		if [ -z "$dscp" ]; then
-			dupdsrtype="L2DSR"
-			dupdscp="none"
+		if [[ -z $dscp ]]; then
+			dupdsrtype=L2DSR
+			dupdscp=none
 		else
-			dupdsrtype="L3DSR"
-			dupdscp="$dscp"
+			dupdsrtype=L3DSR
+			dupdscp=$dscp
 		fi
 
 		# Prev: L3DSR  Dup: L3DSR (diff IPs)
 		# Prev: L2DSR  Dup: L2DSR (diff IPs)
-		prevdsrtype="$dupdsrtype"
-		prevdscp="$dupdscp"
+		prevdsrtype=$dupdsrtype
+		prevdscp=$dupdscp
 
 		str="Conflicting DSRs "
-		str+="(IP=$previp, IP=$vip) "
+		str+="(IP=$previp, IP=$vipnumeric) "
 		str+="found with DSCP $prevdscp."
-		echo "$str"
+		print -- "$str"
 
-		dscp_dec=$(cvt2dec $dscp)
-		str="- Prev: $prevdsrtype at ${Dsr_config_file[$previp,$dscp_dec]}, "
-		str+="line ${Dsr_config_file_lineno[$previp,$dscp_dec]}."
-		echo "$str"
+		normdscp=$(normalize_dscp "$dscp")
+		prevkey=$(makekey "$previp" "$normdscp")
+		str="- Prev: $prevdsrtype at \"${Dsr[$prevkey].config_file}\", "
+		str+="line ${Dsr[$prevkey].config_file_lineno}."
+		print -- "$str"
 
-		str="- Dup:  $dupdsrtype at $config_file, line $lineno."
-		echo "$str"
+		str="- Dup:  $dupdsrtype at \"$config_file\", line $lineno."
+		print -- "$str"
 
 		return 2
 	fi
@@ -841,74 +1064,49 @@ function _Dsr_validate_dsr
 	return 0
 }
 
-# Return 0 if $vip exists and is equal to the given indx.
+# Return 0 if the $normvip,$normdscp DSR exists and is indexed by the given indx.
 # Otherwise, return 1.
-function _Dsr_ip_exists
+function Dsr_ip_exists
 {
-	typeset vip="$1"
-	typeset dscp="$2"
-	typeset indx="$3"
+	typeset normvip=$1
+	typeset normdscp=$2
+	typeset indx=$3
 
-	typeset key
+	typeset key=$(makekey "$normvip" "$normdscp")
 
-	key=$(makekey "$vip" "$dscp")
-	[ ! ${Dsr_indx[$key]+_} ] || [ "${Dsr_indx[$key]}" != "$indx" ] || \
+	[[ ! ${Dsr[$key].indx+_} ]] || [[ ${Dsr[$key].indx} != $indx ]] || \
 		return 0
 
 	return 1
 }
 
-# Return 0 if $vip is a configured DSR.
-function _Dsr_is_configured_dsr
+# Return 0 if $normvip,$normdscp is a configured DSR.
+function Dsr_is_configured_dsr
 {
-	typeset vip="$1"
-	typeset dscp="$2"
+	typeset normvip=$1
+	typeset normdscp=$2
 
-	typeset key
+	typeset key=$(makekey "$normvip" "$normdscp")
 
-	key=$(makekey "$vip" "$dscp")
-	[ ! ${Dsr_dsrsrc[$key]+_} ] || [ "${Dsr_dsrsrc[$key]}" != "configured" ] || \
+	[[ ! ${Dsr[$key].dsrsrc+_} ]] || [[ ${Dsr[$key].dsrsrc} != configured ]] || \
 		return 0
 
 	return 1
 }
 
-# Return 0 if $dscp is a valid DSCP for $vip.
-function _Dsr_dscp_matches
+# Search all configured DSRs for the given normalized VIP and DSCP.
+# Returns
+#     0  if given VIP/DSCP was found
+#     1  if given VIP/DSCP was not found
+function Dsr_find_configured_dsr_by_ip_and_dscp
 {
-	typeset vip="$1"
-	typeset dscp="$2"
-	typeset indx="$3"
+	typeset normvip=$1
+	typeset normdscp=$2
 
-	typeset key
+	typeset key=$(makekey "$normvip" "$normdscp")
 
-	key=$(makekey "$vip" "$dscp")
-	[ ${Dsr_indx[$key]+_} ] || return 1
-	[ ${Dsr_dscp[$key]+_} ] || return 1
-	[ "${Dsr_indx[$key]}" == "$indx" ] || return 1
-	[ "${Dsr_dscp[$key]}" == "$dscp" ] || return 1
-
-	return 0
-}
-
-function _Dsr_find_configured_dsr_by_ip_and_dscp
-{
-	typeset vip="$1"
-	typeset dscp="$2"
-
-	typeset found i
-
-	found=notfound
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		_Dsr_ip_exists "$vip" "$dscp" "$i" || continue
-		_Dsr_is_configured_dsr "$vip" "$dscp" || continue
-		_Dsr_dscp_matches "$vip" "$dscp" "$i" || continue
-
-		found="$i"
-		break
-	done
-
-	echo "$found"
+	[[ ${Dsr[$key].indx+_} ]] || Dsr_is_configured_dsr "$normvip" "$normdscp" || \
+		return 1
 
 	return 0
 }
@@ -918,81 +1116,73 @@ function _Dsr_find_configured_dsr_by_ip_and_dscp
 # the config files.
 # Don't bother to search for L2DSRs -- they all have an
 # empty DSCP.
-function _Dsr_find_configured_dsr_by_dscp
+function Dsr_find_configured_dsr_by_dscp
 {
-	typeset dscparg="$1"
-	typeset afarg="$2"
+	typeset normdscparg=$1
+	typeset afarg=$2
 
-	typeset dscp found i vip key
+	typeset i key normdscp normvip
 
-	[ -n "$dscparg" ] || { echo notfound; return 0; }
+	[[ -n $normdscparg ]] || { print -- "notfound"; return 0; }
 
-	found=notfound
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
+		extractkey ${Dsr_keys[$i]} key normvip normdscp
 
-		[ "${Dsr_dsrsrc[$key]}" == "configured" ] || continue
-		[ $(cvt2dec "$dscp") -eq $(cvt2dec "$dscparg") ] || continue
-		[ "$afarg" == $(_addraf "$vip") ] || continue
+		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
+		[[ $normdscp == $normdscparg ]] || continue
+		[[ $afarg == $(addraf "$normvip") ]] || continue
 
-		[ "$found" == "notfound" ] || break
-		found="$i"
+		# If we get here, then we found one.
+		print -- "$i"
+		return 0
 	done
 
-	echo "$found"
-
+	print -- "notfound"
 	return 0
 }
 
 # Search for just the VIP address in the configured DSRs.
-# This funtion only finds the first matching entry.
-function _Dsr_find_discovered_dsr_by_vip
+# This function only finds the first matching entry.
+function Dsr_find_discovered_dsr_by_vip
 {
-	typeset viparg="$1"
+	typeset normvip_arg=$1
 
-	typeset dscp found i vip key
+	typeset i key normdscp normvip
 
-	[ -n "$viparg" ] || { echo notfound; return 0; }
+	[[ -n $normvip_arg ]] || { print -- "notfound"; return 0; }
 
-	found=notfound
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
+		extractkey ${Dsr_keys[$i]} key normvip normdscp
 
-		[ "${Dsr_dsrsrc[$key]}" == "discovered" ] || continue
-		[ "$viparg" == "$vip" ] || continue
+		[[ ${Dsr[$key].dsrsrc} == discovered ]] || continue
+		[[ $normvip_arg == $normvip ]] || continue
 
-		found="$i"
-		break
+		print -- "$i"
+		return 0
 	done
 
-	echo "$found"
-
+	print -- "notfound"
 	return 0
 }
 
-function _Dsr_dbg_print
+function Dsr_dbg_print
 {
-	typeset af dscp i vip key state dsrsrc dsrcount
+	typeset af dscp dsrsrc i key normdscp normvip state vip
 
-	_Dsr_read_configuration || return 1
+	Dsr_read_configuration || return 1
 
 	vprt2 "====== Config File Start"
-	vprt2 "======     Number of DSRs = $(_Dsr_configured_dsr_count)"
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	vprt2 "======     Number of DSRs = $(Dsr_configured_dsr_count)"
+	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
+		extractkey ${Dsr_keys[$i]} key normvip normdscp
 
-		[ ${Dsr_dsrsrc[$key]} == "configured" ] || continue
+		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 
-		af=$(_addraf "$vip")
-		state=${Dsr_state[$key]}
-		dsrsrc=${Dsr_dsrsrc[$key]}
-		dscp=${Dsr_dscp[$key]}
+		af=$(addraf "$normvip")
+		state=${Dsr[$key].state}
+		dsrsrc=${Dsr[$key].dsrsrc}
+		vip=${Dsr[$key].vipname}
+		dscp=${Dsr[$key].dscp}
 		vprt2 "======         dsr$af: $dsrsrc $state vip=$vip dscp=$dscp"
 	done
 
@@ -1007,213 +1197,32 @@ function _Dsr_dbg_print
 
 
 # =======================================================================
-# Cache
-# =======================================================================
-
-#
-# Add a cache entry.
-#
-function _Cache_init
-{
-	typeset dsrsrc="$1"
-	typeset vip="$2"
-	typeset dscp="$3"
-	typeset config_file="$4"
-	typeset lineno="$5"
-
-	typeset fqdn indx key numericip
-
-	# Unlike regular configuration elements, the vip from the cache
-	# file is always numeric.
-	numericip="$vip"
-	fqdn="$vip"
-
-	# If it already exists, then we have a corrupted cache file.
-	[ ! ${Cache_ip_dscp[$numericip]+_} ] || { CacheFileNeedsRewrite=yes; return 1; }
-
-	# Now create the new cache entry.
-	indx=${#Cache_ip_dscp[@]}
-
-	[ ${#numericip} -le $Cache_ip_maxlen ] || Cache_ip_maxlen=${#numericip}
-	[ ${#fqdn} -le $Cache_name_maxlen ] || Cache_name_maxlen=${#fqdn}
-
-	key=$(makekey "$numericip" "$dscp")
-	Cache_ip_dscp[$indx]="$numericip"
-	Cache_indx[$key]="$indx"
-	Cache_state[$key]="init"
-	Cache_dsrsrc[$key]="$dsrsrc"
-	Cache_name[$key]="$fqdn"
-	Cache_conf_dsr_found[$key]="no"
-
-	if [ -n "$dscp" ]; then
-		Cache_type[$key]="l3dsr"
-	else
-		Cache_type[$key]="l2dsr"
-	fi
-
-	Cache_config_file[$key]="$config_file"
-	Cache_config_file_lineno[$key]="$lineno"
-
-	indx=$(_Dsr_find_configured_dsr_by_ip_and_dscp "$vip" "$dscp")
-	if [ "$indx" != "notfound" ]; then
-		Cache_conf_dsr_found[$key]="yes"
-	fi
-
-	return 0
-}
-
-#
-# Read the cached dsr configuration file.
-#
-# Returns
-#     0 if we successfully read the file
-#     1 if not
-#
-function _Cache_read_file
-{
-	typeset cache_file="$CacheFile"
-	typeset dscp vip line lineno lines rv=0
-
-	# If there's no cache file, then that's ok.
-	# Just return with success.
-	[ -r "$cache_file" ] || { NoCacheFile="yes"; return 0; }
-
-	lines=$(cat "$cache_file" || rv=$?)
-	[ $rv -eq 0 ] || { echo "Can't read $cache_file."; return 1; }
-
-	lineno=0
-	while read line; do
-		((lineno++))
-
-		# These cmds are rarely interesting, so you have to request a
-		# higher VerboseLevel to get them to print.
-		line=$(vrun5 echo "$line" | \
-		       vrun5 sed -e '/^[ \t]*#/d' -e 's/[ \t]*#.*//' -e '/^[ \t]*$/d' -e 's/[ \t]*//g')
-		[ $? -eq 0 ] || return 1
-
-		[ -n "$line" ] || continue;
-
-		# This is a DSR line.
-		# The vip in a cache file is always numeric.
-		vip=${line%%=*}
-		case "$line" in
-		  *=*)  dscp=${line##$vip=};;
-		  *)    dscp=;;
-		esac
-
-		_Cache_init "cached" "$vip" "$dscp" "$cache_file" "$lineno" || rv=1
-
-	done < <(echo "$lines")
-
-	return $rv
-}
-
-# Compare the cached configuration with the configuration we read.
-# Returns
-#     0 if the configuration and its cached version are the same
-#       Note that they are the same if both are empty.
-#     1 if not
-function _Cache_compare_config
-{
-	typeset dscp i vip key
-
-	# Nonexistent cache files fail the comparison test.
-	[ "$NoCacheFile" == "no" ] || return 1
-
-	# They are different if the number of entries is different.
-	[ ${#Dsr_ip_dscp[@]} -eq ${#Cache_ip_dscp[@]} ] || return 1
-
-        # Compare the entries one by one.  Return failure if there are any
-        # differences.
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
-
-		[ "${Cache_indx[$key]}+_" ] || return 1
-	done
-
-	return 0
-}
-
-function _Cache_write
-{
-	typeset dscp i vip
-
-	# There is no need to write it out if the configuration hasn't
-	# changed.
-	[ $CacheFileNeedsRewrite == yes ] || return 0
-
-        # Compare the configuration with the cached version.  If they are
-        # the same (including both empty), then there's nothing to do.
-	! _Cache_compare_config || return 0
-
-	[ -w "$CacheFile" ] ||
-		{ echo "The cache file ($CacheFile) is not writable."; return 1; }
-
-	vrun5 echo "# dsrtool cached configuration" > "$CacheFile"
-	vrun5 echo "# written on $(date)" >> "$CacheFile"
-
-	for ((i=0; i<${Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		[ -z "$dscp" ] || vrun5 echo "$vip=$dscp" >> "$CacheFile"
-		[ -n "$dscp" ] || vrun5 echo "$vip"       >> "$CacheFile"
-	done
-
-	CacheFileNeedsRewrite=no
-}
-
-function _Cache_dbg_print
-{
-	typeset af dscp i vip key dsrsrc dsrcount state
-
-	_Cache_read_file || return 1
-
-	vprt2 "====== Cache File Start"
-	vprt2 "======     Number of DSRs = ${#Cache_ip_dscp[@]}"
-	for ((i=0; i<${#Cache_ip[@]}; i++)) do
-		vip=${Cache_ip_dscp[$i]%%,*}
-		dscp=${Cache_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
-
-		af=$(_addraf "$vip")
-		state=${Cache_state[$key]}
-		dsrsrc=${Cache_dsrsrc[$key]}
-		vprt2 "======         dsr$af: $dsrsrc $state vip=$vip dscp=$dscp"
-	done
-
-	vprt2 "====== Cache File End"
-
-	return 0
-}
-
-# =======================================================================
-# End of Cache
-# =======================================================================
-
-
-# =======================================================================
 # Lo
 # =======================================================================
 
-function _Lo_init
+# Initialize the given loopback.
+function Lo_init
 {
-	typeset losrc="$1"
-	typeset vip="$2"
-	typeset lonum="$3"
+	typeset losrc=$1
+	typeset vipnumeric=$2
+	typeset vip=$3
+	typeset lonum=$4
 
-	typeset indx
+	typeset indx normvip
 
 	# Now we create a new Loopback.
-	indx=${#Lo_ip[@]}
+	indx=${#Lo_keys[@]}
 
-	Lo_ip[$indx]="$vip"
-	Lo_indx[$vip]="$indx"
-	Lo_state[$vip]="init"
-	Lo_state_orig[$vip]="init"
-	Lo_losrc[$vip]="$losrc"
-	Lo_num[$vip]="$lonum"
+	normvip=$(normalize_vip "$vipnumeric")
+
+	Lo_keys[$indx]=$normvip
+	Lo[$normvip].indx=$indx
+	Lo[$normvip].vipname=$vip
+	Lo[$normvip].vipnumeric=$vipnumeric
+	Lo[$normvip].state=init
+	Lo[$normvip].state_orig=init
+	Lo[$normvip].losrc=$losrc
+	Lo[$normvip].num=$lonum
 
 	return 0
 }
@@ -1225,43 +1234,44 @@ function _Lo_init
 #   0 if the loopback was successfully started
 #   1 otherwise
 #
-function _Lo_start
+function Lo_start
 {
-	typeset vip="$1"
+	typeset normvip=$1
 
-	typeset af aliasincrement lonum rv=0
+	typeset af aliasincrement lonum rv=0 vip
+	typeset -a cmd
 
-	[ "${Lo_state[$vip]}" == "stopped" ] || return 0
+	[[ ${Lo[$normvip].state} == stopped ]] || return 0
 
-	Lo_state[$vip]="starting"
+	Lo[$normvip].state=starting
 
-	if [ $NoRun == yes ]; then
-		(( FakeAliasIncrement++ ))
-		aliasincrement=$FakeAliasIncrement
+	if [[ $NoRun == yes ]]; then
+		(( aliasincrement = ++FakeAliasIncrement ))
 	else
 		aliasincrement=0
 	fi
 
-	lonum=$(_Lo_get_loopback_alias "$aliasincrement" || rv=$?)
-	if [ $rv -ne 0 ]; then
-		Lo_state[$vip]="error"
-		echo "Cannot find available loopback alias."
+	lonum=$(Lo_get_loopback_alias "$aliasincrement" || rv=$?)
+	if (( rv != 0 )); then
+		Lo[$normvip].state=error
+		print -- "Cannot find available loopback alias."
 		return 1
 	fi
 
-	Lo_num[$vip]="$lonum"
+	Lo[$normvip].num=$lonum
 
-	af=$(_addraf "$vip")
-	[ "$af" == "4" ] || cmd="ifconfig lo inet6 add $vip/128"
-	[ "$af" == "6" ] || cmd="ifconfig lo:$lonum $vip netmask 255.255.255.255"
+	af=$(addraf "$normvip")
+	vip=${Lo[$normvip].vipname}
+	vipnumeric=${Lo[$normvip].vipnumeric}
+	(( af == 4 )) || cmd=(ifconfig lo inet6 add $vip/128)
+	(( af == 6 )) || cmd=(ifconfig lo:$lonum $vipnumeric netmask 255.255.255.255)
 
-	if run $cmd; then
-		Lo_state[$vip]="started"
-		rv=0
+	if run "${cmd[@]}"; then
+		Lo[$normvip].state=started
 	else
-		Lo_state[$vip]="error"
-		unset Lo_num[$vip]
-		echo "Failed to start loopback for $vip."
+		Lo[$normvip].state=error
+		unset Lo[$normvip].num
+		print -- "Failed to start loopback for $vip."
 		rv=1
 	fi
 
@@ -1272,43 +1282,46 @@ function _Lo_start
 # Stop a loopback.
 #
 # Returns
-#   0 if the loopback was successfully stopped
+#   0 if the loopback was successfully stopped or was not in the
+#     started state when the function was called.
 #   1 otherwise
 #
-function _Lo_stop
+function Lo_stop
 {
-	typeset vip="$1"
+	typeset normvip=$1
 
-	typeset af cmd rv
+	typeset af rv=0 vip
+	typeset -a cmd
 
-	[ "${Lo_state[$vip]}" == "started" ] || return 0
+	[[ ${Lo[$normvip].state} == started ]] || return 0
 
-	Lo_state[$vip]="stopping"
+	Lo[$normvip].state=stopping
 
-	af=$(_addraf "$vip")
-	[ "$af" == "4" ] || cmd="ifconfig lo inet6 del $vip/128"
-	[ "$af" == "6" ] || cmd="ifconfig lo:${Lo_num[$vip]} down"
+	af=$(addraf "$normvip")
+	vip=${Lo[$normvip].vipname}
+	(( af == 4 )) || cmd=(ifconfig lo inet6 del $vip/128)
+	(( af == 6 )) || cmd=(ifconfig lo:${Lo[$normvip].num} down)
 
-	if run $cmd; then
-		Lo_state[$vip]="stopped"
-		rv=0
+	if run "${cmd[@]}"; then
+		Lo[$normvip].state=stopped
 	else
-		Lo_state[$vip]="error"
+		Lo[$normvip].state=error
 		rv=1
 	fi
 
 	return $rv
 }
 
-function _Lo_restore_orig_state
+# Restore the original state (before we tried to start DSRs) of the loopback.
+function Lo_restore_orig_state
 {
-	typeset vip="$1"
+	typeset normvip=$1
 
-	if [ "${Lo_state_orig[$vip]}" == "stopped" ]; then
-		[ "${Lo_state[$vip]}" != "started" ] || _Lo_stop "$vip"
+	if [[ ${Lo[$normvip].state_orig} == stopped ]]; then
+		[[ ${Lo[$normvip].state} != started ]] || Lo_stop "$normvip"
 	fi
-	if [ "${Lo_state_orig[$vip]}" == "started" ]; then
-		[ "${Lo_state[$vip]}" != "stopped" ] || _Lo_start "$vip"
+	if [[ ${Lo[$normvip].state_orig} == started ]]; then
+		[[ ${Lo[$normvip].state} != stopped ]] || Lo_start "$normvip"
 	fi
 }
 
@@ -1321,9 +1334,9 @@ function _Lo_restore_orig_state
 #
 # Most of the time, the aliases are sequential, but there is no guarantee.
 #
-# If we're not running commands, then just create fake, but reasonable,
-# numbers.  This is controlled by the aliasincrement.  It's 0 when we're
-# running commands and artifically increases when we're not.
+# If we're not running commands ($NoRun==yes), then just create fake, but
+# reasonable, numbers.  This is controlled by the aliasincrement.  It's 0 when
+# we're running commands and artifically increases when we're not.
 #
 # Returns
 #   0 if no failures were found
@@ -1331,32 +1344,34 @@ function _Lo_restore_orig_state
 #   1 if we failed to successfully read the loopback information
 #     Prints nothing
 #
-function _Lo_get_loopback_alias
+function Lo_get_loopback_alias
 {
-	typeset aliasincrement="$1"
+	typeset aliasincrement=$1
 
-	typeset i vip max newalias
+	typeset i normvip max=0 newalias
 
-	_Lo_reread_loopbacks || return 1
+	# We need to reread the loopbacks because they might have changed
+	# since we started or, if we are starting multiple DSRs, since the
+	# last DSR that we started.
+	Lo_reread_loopbacks || return 1
 
-	max=0
-	for ((i=0; i<${#Lo_ip[@]}; i++)) do
-		vip=${Lo_ip[$i]}
-		[ "${Lo_state[$vip]}" == "started" ] || continue
+	for ((i=0; i<${#Lo_keys[@]}; i++)); do
+		normvip=${Lo_keys[$i]}
+		[[ ${Lo[$normvip].state} == started ]] || continue
 
 		# IPv6 loopback aliases don't have a lonum value
 		# so we check for empty values and skip the max
 		# calculation for IPv6 loopback aliases.
-		[ ! ${Lo_num[$vip]+_} ] || \
-		{ [ $(_addraf "$vip") == "6" ] && [ -z ${Lo_num[$vip]} ]; } || \
-		[ ${Lo_num[$vip]} -le $max ] || \
-			max=${Lo_num[$vip]}
+		[[ ! ${Lo[$normvip].num+_} ]] || \
+		{ (( $(addraf "$normvip") == 6 )) && [[ -z ${Lo[$normvip].num} ]]; } || \
+		(( ${Lo[$normvip].num} <= max )) || \
+			max=${Lo[$normvip].num}
 	done
 
-	[ $NoRun == yes ] || (( max++ ))
+	[[ $NoRun == yes ]] || (( max++ ))
 
-	(( newalias = max + aliasincrement )) || true
-	echo "$newalias"
+	(( newalias = max + aliasincrement )) || :
+	print -- "$newalias"
 
 	return 0
 }
@@ -1366,23 +1381,25 @@ function _Lo_get_loopback_alias
 # information if they are configured DSRs.  This works for both IPv4 and IPv6
 # loopbacks.
 #
-function _Lo_get_loopbacks
+function Lo_get_loopbacks
 {
-	typeset cmd i indx ipout lines lo loaf loinfo loname lonum vip vipinfo
+	typeset i indx ipout line lines lo loaf loinfo loname lonum
+	typeset normvip oifs vip vipinfo vipnumeric
 
-	[ $GotLoopbacksAlready -eq 0 ] || return 0
+	(( GotLoopbacksAlready == 0 )) || return 0
 
 	GotLoopbacksAlready=1
 
 	# Run the vip program to get the loopback information.
 	# $? is the return value of the rightmost cmd that fails or zero otherwise.
 	# This is usually the egrep.
-	ipout=$(run ip -o addr show lo | run tr -d \\134 | run egrep -v "127.0.0.1|LOOPBACK|::1/128")
-	[ $? -lt 2 ] || return 1
+	ipout=$(run ip -o addr show lo)
+	(( $? < 2 )) || return 1
 
-	OIFS="$IFS"
-	IFS=$'\n' lines=( $(echo "$ipout") )
-	IFS="$OIFS"
+	oifs=$IFS
+	IFS=$'\n'
+	lines=( $(print -- "$ipout") )
+	IFS=$oifs
 
 	# Expecting output like this from the ip cmd.
 	#     1: lo    inet 188.125.67.68/32 brd 188.125.67.68 scope global lo:1
@@ -1394,21 +1411,29 @@ function _Lo_get_loopbacks
 	#     1: lo    inet 188.125.67.68/32 scope global lo:1\ valid_lft forever preferred_lft forever
 
 	for line in "${lines[@]}"; do
-                lo=($line)
+		# Skip lines we don't care about.
+		[[ $line != *127.0.0.1* ]] || continue
+		[[ $line != *LOOPBACK* ]] || continue
+		[[ $line != *::1/128* ]] || continue
+
+		# Remove all backslashes in line.
+		line=${line//\\/}
+
+		lo=($line)
 		loaf=${lo[2]}
-		if [ "$loaf" == "inet" ]; then
+		if [[ $loaf == inet ]]; then
 			# Find the "scope" element.  The loopback name is
 			# two elements later.
 			indx=-1
-			for ((i=0; i<${#lo[@]}; i++)) do
-				[ "${lo[$i]}" == "scope" ] || continue
+			for ((i=0; i<${#lo[@]}; i++)); do
+				[[ ${lo[$i]} == scope ]] || continue
 
 				(( indx = i + 2 ))
 				break
 			done
 
 			# Skip this line if we didn't find the "scope" element.
-			[ $indx -ge 2 ] || continue
+			(( indx >= 2 )) || continue
 
 			loinfo=${lo[$indx]}
 			loname=${loinfo%%:*}
@@ -1416,96 +1441,107 @@ function _Lo_get_loopbacks
 
 			vipinfo=${lo[3]}
 			vip=${vipinfo%%/*}
-			[ -n "$lonum" ] || continue
+			[[ -n $lonum ]] || continue
 		else
 			# inet6
 			vip=${lo[3]}
 			vip=${vip%%/*}
 			lonum=
 		fi
-                [ -n "$vip" ] || continue
+		[[ -n $vip ]] || continue
 
-		if [ ${Lo_indx[$vip]+_} ]; then
-			Lo_num[$vip]="$lonum"
+		normvip=$(normalize_vip "$vip")
+		if [[ ${Lo[$normvip].indx+_} ]]; then
+			Lo[$normvip].num=$lonum
+			Lo[$normvip].vipname=$vip
 		else
-			_Lo_init "discovered" "$vip" "$lonum"
+			Lo_init discovered "$vip" "$vip" "$lonum"
 		fi
 
-		[ "${Lo_state_orig[$vip]}" != "init" ] || Lo_state_orig[$vip]="started"
-		Lo_state[$vip]="started"
+		[[ ${Lo[$normvip].state_orig} != init ]] || Lo[$normvip].state_orig=started
+		Lo[$normvip].state=started
 	done
 
-	for ((i=0; i<${#Lo_ip[@]}; i++)) do
-		vip=${Lo_ip[$i]}
-		[ "${Lo_state[$vip]}" != "init" ] || Lo_state[$vip]="stopped"
-		[ "${Lo_state_orig[$vip]}" != "init" ] || Lo_state_orig[$vip]="stopped"
+	for ((i=0; i<${#Lo_keys[@]}; i++)); do
+		normvip=${Lo_keys[$i]}
+		[[ ${Lo[$normvip].state} != init ]] || Lo[$normvip].state=stopped
+		[[ ${Lo[$normvip].state_orig} != init ]] || Lo[$normvip].state_orig=stopped
 
-		[ ${#vip} -le $IPMaxlenAll ] || IPMaxlenAll=${#vip}
-		[ ${#vip} -le $NameMaxlenAll ] || NameMaxlenAll=${#vip}
-		if [ "${Lo_losrc[$vip]}" == "configured" ]; then
-			[ ${#vip} -le $IPMaxlenConf ] || IPMaxlenConf=${#vip}
-			[ ${#vip} -le $NameMaxlenConf ] || NameMaxlenConf=${#vip}
+		[[ ${Lo[$normvip].losrc} != configured ]] || continue
+
+		vip=${Lo[$normvip].vipname}
+		vipnumeric=${Lo[$normvip].vipnumeric}
+		(( ${#vipnumeric} <= IPMaxlenAll )) || IPMaxlenAll=${#vipnumeric}
+		(( ${#vip} <= NameMaxlenAll )) || NameMaxlenAll=${#vip}
+		if [[ ${Lo[$normvip].losrc} == configured ]]; then
+			(( ${#vipnumeric} <= IPMaxlenConf )) || IPMaxlenConf=${#vipnumeric}
+			(( ${#vip} <= NameMaxlenConf )) || NameMaxlenConf=${#vip}
 		fi
 	done
 
 	return 0
 }
 
-function _Lo_reread_loopbacks
+# Retrieve the loopback information again and update data structures.
+function Lo_reread_loopbacks
 {
 	GotLoopbacksAlready=0
 
-	_Lo_get_loopbacks
-	_Dsr_update_state
+	Lo_get_loopbacks
+	Dsr_update_state
 }
 
-function _Lo_print_unconfigured
+# Print unconfigured loopbacks.
+function Lo_print_unconfigured
 {
-	typeset af i vip loout
+	typeset af i loout normvip vip
 
-	for ((i=0; i<${#Lo_ip[@]}; i++)) do
-		vip=${Lo_ip[$i]}
-		[ ${Lo_losrc[$vip]} != "configured" ] || continue
+	for ((i=0; i<${#Lo_keys[@]}; i++)); do
+		normvip=${Lo_keys[$i]}
+		[[ ${Lo[$normvip].losrc} != configured ]] || continue
 
-                # If the Dsr entry for this key exists, then it has already
-                # been printed, either as a configured entry or as a
-                # discovered entry.
-		[ $(_Dsr_find_discovered_dsr_by_vip $vip) == "notfound" ] || continue
+		vip=${Lo[$normvip].vipname}
 
-		if [ "${Lo_state[$vip]}" == "started" ]; then
-			af=$(_addraf "$vip")
-			[ "$af" == "4" ] || loout="lo"
-			[ "$af" == "6" ] || loout="lo:${Lo_num[$vip]}"
+		# If the Dsr entry for this key exists, then it has already
+		# been printed, either as a configured entry or as a
+		# discovered entry.
+		[[ $(Dsr_find_discovered_dsr_by_vip "$normvip") == notfound ]] || continue
+
+		if [[ ${Lo[$normvip].state} == started ]]; then
+			af=$(addraf "$normvip")
+			(( af == 4 )) || loout=lo
+			(( af == 6 )) || loout=lo:${Lo[$normvip].num}
 		else
-			loout="--"
+			loout=--
 		fi
 
-		_emit_data "loopb" \
-			   "${Lo_state[$vip]}" \
-			   "$vip" \
-			   "$vip" \
-			   "--" \
-			   "$loout" \
-			   "--" \
-			   "disc"
+		emit_data "loopb" \
+			  "${Lo[$normvip].state}" \
+			  "$vip" \
+			  "$vip" \
+			  "--" \
+			  "$loout" \
+			  "--" \
+			  "disc"
 	done
 }
 
-function _Lo_dbg_print
+function Lo_dbg_print
 {
-	typeset af i vip losrc lonum state
+	typeset af i losrc lonum normvip state vip
 
-	_Lo_get_loopbacks || return 1
+	Lo_get_loopbacks || return 1
 
 	vprt2 "====== Loopbacks Start"
-	vprt2 "======     Number of loopbacks = ${#Lo_ip[@]}"
-	for ((i=0; i<${#Lo_ip[@]}; i++)) do
-		vip=${Lo_ip[$i]}
-		af=$(_addraf "$vip")
-		losrc=${Lo_losrc[$vip]}
-		lonum=${Lo_num[$vip]}
-		state=${Lo_state[$vip]}
-		if [ "$af" == "4" ]; then
+	vprt2 "======     Number of loopbacks = ${#Lo_keys[@]}"
+	for ((i=0; i<${#Lo_keys[@]}; i++)); do
+		normvip=${Lo_keys[$i]}
+		af=$(addraf "$normvip")
+		losrc=${Lo[$normvip].losrc}
+		lonum=${Lo[$normvip].num}
+		state=${Lo[$normvip].state}
+		vip=${Lo[$normvip].vipname}
+		if (( af == 4 )); then
 			vprt2 "======         loopback$af: $losrc $state vip=$vip $lonum"
 		else
 			vprt2 "======         loopback$af: $losrc $state vip=$vip"
@@ -1526,27 +1562,32 @@ function _Lo_dbg_print
 # Iptables
 # =======================================================================
 
-function _Iptables_init
+# Initialize an iptables struct
+# dscp is not normalized.
+function Iptables_init
 {
-	typeset iptsrc="$1"
-	typeset vip="$2"
-	typeset dscp="$3"
+	typeset iptsrc=$1
+	typeset vipnumeric=$2
+	typeset vip=$3
+	typeset dscp=$4
 
-	typeset dscp_dec indx key
+	typeset indx key
 
-	# Now we create a new Loopback.
-	indx=${#Iptables_ip_dscp[@]}
+	# Now we create a new Iptables.
+	indx=${#Iptables_keys[@]}
 
-	[ -z "$dscp" ] && dscp_dec= || dscp_dec=$(cvt2dec "$dscp")
-	key=$(makekey "$vip" "$dscp_dec")
+	key=$(makekey_normalized "$vipnumeric" "$dscp")
 
-	Iptables_ip_dscp[$indx]="$key"
-	Iptables_indx[$key]="$indx"
-	Iptables_dscp[$key]="$dscp"
-	Iptables_state[$key]="init"
-	Iptables_state_orig[$key]="init"
-	Iptables_iptsrc[$key]="$iptsrc"
-
+	Iptables_keys[$indx]=$key
+	Iptables[$key].indx=$indx
+	Iptables[$key].dscp=$dscp
+	Iptables[$key].vipname=$vip
+	Iptables[$key].vipnumeric=$vipnumeric
+	Iptables[$key].state=init
+	Iptables[$key].state_orig=init
+	Iptables[$key].iptsrc=$iptsrc
+	Iptables[$key].rulecnt=1
+	Iptables[$key].dup_warn_emitted=0
 
 	return 0
 }
@@ -1557,24 +1598,23 @@ function _Iptables_init
 # For now, we only look at the mangle table.  Other rules that might
 # be running from other tables are ignored.
 #
-function _Iptables_get_iptables_af
+function Iptables_get_iptables_af
 {
-	typeset af="$1"
+	typeset af=$1
 
-	typeset dscp dscp_dec dscp_conf_dec dscp_field dscp_val dscp_val_field
-	typeset vip vip_field iptablesout iptbl key line lines match_field pgm str
+	typeset conf_normdscp dscp dscp_field dscp_val dscp_val_field i
+	typeset iptablesout iptbl key line lines match_field normdscp normvip
+	typeset oifs pgm str vip vip_field vipnumeric
 
-	[ "$af" == "6" ] || pgm="iptables"
-	[ "$af" == "4" ] || pgm="ip6tables"
+	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
-	# $? is the return value of the rightmost cmd that fails or zero otherwise.
-	# This is usually the egrep.
-	iptablesout=$(run $pgm -L -t mangle -n 2>&1 | run egrep DADDR | run sort)
-	[ $? -lt 2 ] || return 1
+	iptablesout=$(run $pgm -L -t mangle -n 2>&1)
+	(( $? < 2 )) || return 1
 
-	OIFS="$IFS"
-	IFS=$'\n' lines=( $(echo "$iptablesout") )
-	IFS="$OIFS"
+	oifs=$IFS
+	IFS=$'\n'
+	lines=( $(print -- "$iptablesout") )
+	IFS=$oifs
 
 	# Expecting output like this from the iptables cmd.
 	#  DADDR      all  --  anywhere    anywhere    DSCP match 0x1cDADDR set 188.125.67.68
@@ -1594,7 +1634,7 @@ function _Iptables_get_iptables_af
 	# On Rhel5, it's slightly different.
 	#  DADDR      all      anywhere    anywhere    DSCP match 0x18 DADDR set 2001:4998:c:a06::2:4004
 
-	if [ "$af" == "4" ]; then
+	if (( af == 4 )); then
 		dscp_field=5
 		match_field=6
 		dscp_val_field=7
@@ -1606,110 +1646,163 @@ function _Iptables_get_iptables_af
 		vip_field=8
 	fi
 
+	# Read each iptables output line and process.
 	for line in "${lines[@]}"; do
 		iptbl=($line)
 
-		[ "${iptbl[0]}" == "DADDR" ] || continue
-		[ "${iptbl[$dscp_field]}" == "DSCP" ] || continue
-		[ "${iptbl[$match_field]}" == "match" ] || continue
+		[[ ${iptbl[0]} == DADDR ]] || continue
+		[[ ${iptbl[$dscp_field]} == DSCP ]] || continue
+		[[ ${iptbl[$match_field]} == match ]] || continue
 
 		dscp_val=${iptbl[$dscp_val_field]}
 		dscp=${dscp_val%%DADDR}
-		if [ "$dscp" == "$dscp_val" ]; then
-			[ "$af" == "6" ] || vip_field=10
-			[ "$af" == "4" ] || vip_field=9
+		if [[ $dscp == $dscp_val ]]; then
+			(( af == 4 )) && vip_field=10 || vip_field=9
 		fi
-		[ -z "$dscp" ] && dscp_dec= || dscp_dec=$(cvt2dec "$dscp")
 		vip=${iptbl[$vip_field]}
 
-		[ -n "$dscp" ] || continue
-		[ -n "$vip" ] || continue
+		[[ -n $dscp ]] || continue
+		[[ -n $vip ]] || continue
 
-		key=$(makekey "$vip" "$dscp_dec")
-		[ ${Iptables_indx[$key]+_} ] || \
-			_Iptables_init "discovered" "$vip" "$dscp"
+		normvip=$(normalize_vip "$vip")
+		normdscp=$(normalize_dscp "$dscp")
+		key=$(makekey "$normvip" "$normdscp")
 
-		conf_dscp_dec=$(cvt2dec ${Iptables_dscp[$key]})
-		if [ $conf_dscp_dec -ne $dscp_dec ]; then
+		# Check for duplicate iptables rules and increment the count
+		# of rulecnt.
+		[[ ! ${Iptables[$key].indx+_} ]] || (( Iptables[$key].rulecnt++ ))
+
+		# The iptables/ip6tables commands produce output that contains
+		# numeric IP addresses, so we use the given vip for both
+		# vipname and vipnumeric when calling Iptables_init.  We
+		# don't want to use the normalized VIP for either vipname or
+		# vipnumeric.
+		[[ ${Iptables[$key].indx+_} ]] || \
+			Iptables_init discovered "$vip" "$vip" "$dscp"
+
+		conf_normdscp=$(normalize_dscp "${Iptables[$key].dscp}")
+		if (( conf_normdscp != normdscp )); then
 			str="Configured DSCP value "
-			str+="(vip=$vip, dscp=${Iptables_dscp[$key]}) "
+			str+="(vip=$vip, dscp=${Iptables[$key].dscp}) "
 			str+="does not match started DSCP value "
 			str+="(vip=$vip, dscp=$dscp)."
-			echo "$str"
-			continue;
+			print -- "$str"
+			continue
 		fi
 
-		[ "${Iptables_state_orig[$key]}" != "init" ] || Iptables_state_orig[$key]="started"
-		Iptables_state[$key]="started"
+		[[ ${Iptables[$key].state_orig} != init ]] || \
+			Iptables[$key].state_orig=started
+		Iptables[$key].state=started
 	done
 
-	for ((i=0; i<${#Iptables_ip_dscp[@]}; i++)) do
-		vip=${Iptables_ip_dscp[$i]%%,*}
-		dscp=${Iptables_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
+		extractkey ${Iptables_keys[$i]} key normvip normdscp
 
-		[ "${Iptables_state[$key]}" != "init" ] || Iptables_state[$key]="stopped"
-		[ "${Iptables_state_orig[$key]}" != "init" ] || Iptables_state_orig[$key]="stopped"
+		vip=${Iptables[$key].vipname}
+		vipnumeric=${Iptables[$key].vipnumeric}
+		dscp=${Iptables[$key].dscp}
 
-		[ ${#vip} -le $IPMaxlenAll ] || IPMaxlenAll=${#vip}
-		[ ${#vip} -le $NameMaxlenAll ] || NameMaxlenAll=${#vip}
-		if [ "${Iptables_iptsrc[$key]}" == "configured" ]; then
-			[ ${#vip} -le $IPMaxlenConf ] || IPMaxlenConf=${#vip}
-			[ ${#vip} -le $NameMaxlenConf ] || NameMaxlenConf=${#vip}
+		[[ ${Iptables[$key].state} != init ]] || Iptables[$key].state=stopped
+		[[ ${Iptables[$key].state_orig} != init ]] || Iptables[$key].state_orig=stopped
+
+		# Check for duplicate iptables rules.  It is possible to
+		# successfully run iptables/ip6tables multiple times with the
+		# same rule.  While not strictly an error, it is an indication
+		# that something has gone wrong when starting the VIPs, so we
+		# emit a warning message.
+		if (( ${Iptables[$key].rulecnt} > 1 )) && \
+		   (( ${Iptables[$key].dup_warn_emitted} == 0 ))
+		then
+			if (( AllOpt == 1 )) || \
+			   [[ ${Iptables[$key].iptsrc} == configured ]]
+			then
+				str="Duplicate iptables rules found for VIP $vip=$dscp "
+				str+="count=${Iptables[$key].rulecnt}"
+				print -- "$str"
+				Iptables[$key].dup_warn_emitted=1
+			fi
+		fi
+
+		(( ${#vipnumeric} <= IPMaxlenAll )) || IPMaxlenAll=${#vipnumeric}
+		(( ${#vip} <= NameMaxlenAll )) || NameMaxlenAll=${#vip}
+		if [[ ${Iptables[$key].iptsrc} == configured ]]; then
+			(( ${#vipnumeric} <= IPMaxlenConf )) || IPMaxlenConf=${#vipnumeric}
+			(( ${#vip} <= NameMaxlenConf )) || NameMaxlenConf=${#vip}
 		fi
 	done
 }
 
-function _Iptables_get_iptables
+# Get all of the iptables information.
+function Iptables_get_iptables
 {
-	[ $GotIptablesAlready -eq 0 ] || return 0
+	typeset i key normdscp normvip
+
+	(( GotIptablesAlready == 0 )) || return 0
 
 	GotIptablesAlready=1
 
-	_Iptables_get_iptables_af "4"
-	_Iptables_get_iptables_af "6"
+	# Zero out the rulecnt counts.  Because this function may be called
+	# multiple times during the execution of the script, we need to zero
+	# the counts out each time.
+	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
+		extractkey ${Iptables_keys[$i]} key normvip normdscp
+		Iptables[$key].rulecnt=0
+	done
+
+	Iptables_get_iptables_af 4
+	Iptables_get_iptables_af 6
 
 	return 0
 }
 
-function _Iptables_reread_iptables
+# Get all of the iptables information and update data structures.
+function Iptables_reread_iptables
 {
 	GotIptablesAlready=0
 
-	_Iptables_get_iptables
-	_Dsr_update_state
+	Iptables_get_iptables
+	Dsr_update_state
 }
 
 #
 # Start an iptables/ip6tables rule.
 #
 # Returns
-#   0 if the iptables rules was successfully started
+#   0 if the iptables rule was successfully started or was not in the
+#     stopped state when the function was called.
 #   1 otherwise
 #
-function _Iptables_start
+function Iptables_start
 {
-	typeset vip="$1"
-	typeset dscp="$2"
+	typeset normvip=$1
+	typeset normdscp=$2
 
-	typeset af key pgm rv
+	typeset af dscp key pgm rv=0 vipnumeric
+	typeset -a cmd
 
-	key=$(makekey "$vip" "$dscp")
-	[ "${Iptables_state[$key]}" == "stopped" ] || return 0
+	key=$(makekey "$normvip" "$normdscp")
+	[[ ${Iptables[$key].state} == stopped ]] || return 0
 
-	af=$(_addraf "$vip")
-	[ "$af" == "6" ] || pgm="iptables"
-	[ "$af" == "4" ] || pgm="ip6tables"
+	af=$(addraf "$normvip")
+	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
-	Iptables_state[$key]="starting"
-	if run $pgm -t mangle -A PREROUTING -m dscp --dscp $dscp -j DADDR --set-daddr=$vip
-	then
-		Iptables_state[$key]="started"
-		rv=0
+	vipnumeric=${Iptables[$key].vipnumeric}
+	dscp=${Iptables[$key].dscp}
+
+	cmd=($pgm -t mangle \
+	          -A PREROUTING \
+	          -m dscp \
+	          --dscp "$dscp" \
+	          -j DADDR \
+	          "--set-daddr=$vipnumeric")
+
+	Iptables[$key].state=starting
+	if run "${cmd[@]}"; then
+		Iptables[$key].state=started
 	else
 
-		Iptables_state[$key]="error"
-		echo "Failed to start iptables rule for $vip=${Iptables_dscp[$key]}."
+		Iptables[$key].state=error
+		print -- "Failed to start iptables rule for $vipnumeric=$dscp."
 		rv=1
 	fi
 
@@ -1720,103 +1813,118 @@ function _Iptables_start
 # Stop an iptables/ip6tables rule.
 #
 # Returns
-#   0 if the iptables rules was successfully stopped
+#   0 if the iptables rule was successfully stopped or was not in the
+#     started state when the function was called.
 #   1 otherwise
 #
-function _Iptables_stop
+function Iptables_stop
 {
-	typeset vip="$1"
-	typeset dscp="$2"
+	typeset normvip=$1
+	typeset normdscp=$2
 
-	typeset af key pgm rv
+	typeset af dscp key pgm rv=0 vipnumeric
+	typeset -a cmd
 
-	key=$(makekey "$vip" "$dscp")
-	[ "${Iptables_state[$key]}" == "started" ] || return 0
+	key=$(makekey "$normvip" "$normdscp")
+	[[ ${Iptables[$key].state} == started ]] || return 0
 
-	[ -n "$dscp" ] || return 0
+	[[ -n $normdscp ]] || return 0
 
-	Iptables_state[$key]="stopping"
+	Iptables[$key].state=stopping
 
-	af=$(_addraf "$vip")
-	[ "$af" == "6" ] || pgm="iptables"
-	[ "$af" == "4" ] || pgm="ip6tables"
+	vipnumeric=${Iptables[$key].vipnumeric}
+	dscp=${Iptables[$key].dscp}
 
-	if run $pgm -t mangle -D PREROUTING -m dscp --dscp $dscp -j DADDR --set-daddr=$vip
-	then
-		Iptables_state[$key]="stopped"
-		rv=0
-	else
-		Iptables_state[$key]="error"
-		rv=1
-	fi
+	af=$(addraf "$normvip")
+	(( af == 4 )) && pgm=iptables || pgm=ip6tables
+
+	cmd=($pgm -t mangle \
+	          -D PREROUTING \
+	          -m dscp \
+	          --dscp "$dscp" \
+	          -j DADDR \
+	          "--set-daddr=$vipnumeric")
+
+	while (( ${Iptables[$key].rulecnt} > 0 )); do
+		if run "${cmd[@]}"; then
+			(( Iptables[$key].rulecnt-- ))
+		else
+			Iptables[$key].state=error
+			rv=1
+			break
+		fi
+	done
+
+	(( rv != 0 )) || Iptables[$key].state=stopped
 
 	return $rv
 }
 
-function _Iptables_restore_orig_state
+# Restore the original state (before we tried to start DSRs) of the iptables entry.
+function Iptables_restore_orig_state
 {
-	typeset vip="$1"
-	typeset dscp="$2"
+	typeset normvip=$1
+	typeset normdscp=$2
 
 	typeset key
 
-	key=$(makekey "$vip" "$dscp")
-	if [ "${Iptables_state_orig[$key]}" == "stopped" ]; then
-		[ "${Iptables_state[$key]}" != "started" ] || _Iptables_stop "$vip" "$dscp"
+	key=$(makekey_normalized "$normvip" "$normdscp")
+	if [[ ${Iptables[$key].state_orig} == stopped ]]; then
+		[[ ${Iptables[$key].state} != started ]] || Iptables_stop "$normvip" "$normdscp"
 	fi
-	if [ "${Iptables_state_orig[$key]}" == "started" ]; then
-		[ "${Iptables_state[$key]}" != "stopped" ] || _Iptables_start "$vip" "$dscp"
+	if [[ ${Iptables[$key].state_orig} == started ]]; then
+		[[ ${Iptables[$key].state} != stopped ]] || Iptables_start "$normvip" "$normdscp"
 	fi
 }
 
-function _Iptables_print_unconfigured
+# Print all unconfigured iptables entries.
+function Iptables_print_unconfigured
 {
-	typeset dscp i vip iptout key
+	typeset i key normdscp normvip iptout vip
 
-	for ((i=0; i<${#Iptables_ip_dscp[@]}; i++)) do
-		vip=${Iptables_ip_dscp[$i]%%,*}
-		dscp=${Iptables_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
+		extractkey ${Iptables_keys[$i]} key normvip normdscp
 
-		[ ${Iptables_iptsrc[$key]} != "configured" ] || continue
+		[[ ${Iptables[$key].iptsrc} != configured ]] || continue
 
-                # If the Dsr entry for this key exists, then it has already
-                # been printed, either as a configured entry or as a
-                # discovered entry.
-		[ ! ${Dsr_dsrsrc[$key]+_} ] || continue
+		# If the Dsr entry for this key exists, then it has already
+		# been printed, either as a configured entry or as a
+		# discovered entry.
+		[[ ! ${Dsr[$key].dsrsrc+_} ]] || continue
 
-		[ "${Iptables_state[$key]}" == "started" ] || iptout="--"
-		[ "${Iptables_state[$key]}" != "started" ] || iptout="up"
+		[[ ${Iptables[$key].state} == started ]] || iptout=--
+		[[ ${Iptables[$key].state} != started ]] || iptout=up
 
-		_emit_data "iptbl" \
-			   "${Iptables_state[$key]}" \
-			   "$vip" \
-			   "$vip" \
-			   "${Iptables_dscp[$key]}" \
-			   "--" \
-			   "$iptout" \
-			   "disc"
+		vip=${Iptables[$key].vipname}
+
+		emit_data "iptbl" \
+			  "${Iptables[$key].state}" \
+			  "$vip" \
+			  "$vip" \
+			  "${Iptables[$key].dscp}" \
+			  "--" \
+			  "$iptout" \
+			  "disc"
 	done
 }
 
-function _Iptables_dbg_print
+function Iptables_dbg_print
 {
-	typeset af dscp i vip iptsrc key state
+	typeset af i iptsrc key normdscp normvip state vip
 
-	_Iptables_get_iptables
-	[ $? -eq 0 ] || return 1
+	Iptables_get_iptables
+	(( $? == 0 )) || return 1
 
 	vprt2 "====== Iptables Start"
-	vprt2 "======     Number of iptables rules = ${#Iptables_ip_dscp[@]}"
-	for ((i=0; i<${#Iptables_ip_dscp[@]}; i++)) do
-		vip=${Iptables_ip_dscp[$i]%%,*}
-		dscp=${Iptables_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	vprt2 "======     Number of iptables rules = ${#Iptables_keys[@]}"
+	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
+		extractkey ${Iptables_keys[$i]} key normvip normdscp
+		vip=${Iptables[$key].vipname}
 
-		af=$(_addraf "$vip")
-		iptsrc=${Iptables_iptsrc[$key]}
-		state=${Iptables_state[$key]}
-		vprt2 "======         iptables${af}: $iptsrc $state vip=$vip dscp=${Iptables_dscp[$key]}"
+		af=$(addraf "$normvip")
+		iptsrc=${Iptables[$key].iptsrc}
+		state=${Iptables[$key].state}
+		vprt2 "======         iptables${af}: $iptsrc $state vip=$vip dscp=${Iptables[$key].dscp}"
 	done
 
 	vprt2 "====== Iptables End"
@@ -1829,31 +1937,33 @@ function _Iptables_dbg_print
 # =======================================================================
 
 # Global initialization.
-function _init
+function init
 {
-	typeset rv=0 norun_save
+	typeset rv=0 norun_save=$NoRun
 
-	norun_save=$NoRun
 	NoRun=no
 
-	_Dsr_read_configuration || { rv=1 && [ $NoFail -eq 1 ]; } || { NoRun=$norun_save; return 1; }
+	Dsr_read_configuration || \
+		{ rv=1 && (( NoFail == 1 )) } || \
+		{ NoRun=$norun_save; return 1; }
 
-	_Dsr_dbg_print || true
+	Dsr_dbg_print || :
 
-	_Lo_get_loopbacks || { rv=1 && [ $NoFail -eq 1 ]; } || { NoRun=$norun_save; return 1; }
+	Lo_get_loopbacks || \
+		{ rv=1 && (( NoFail == 1 )); } || \
+		{ NoRun=$norun_save; return 1; }
 
-	_Lo_dbg_print
+	Lo_dbg_print
 
-	_Iptables_get_iptables || { rv=1 && [ $NoFail -eq 1 ]; } || { NoRun=$norun_save; return 1; }
+	Iptables_get_iptables || \
+		{ rv=1 && (( NoFail == 1 )); } || \
+		{ NoRun=$norun_save; return 1; }
 
-	_Iptables_dbg_print
+	Iptables_dbg_print
 
-	_Dsr_init_discovered_dsrs
+	Dsr_init_discovered_dsrs
 
-	_Dsr_update_state
-
-	_Cache_read_file
-	_Cache_dbg_print
+	Dsr_update_state
 
 	NoRun=$norun_save
 
@@ -1863,71 +1973,73 @@ function _init
 # Check DSR status.
 function status
 {
-	typeset dscp i key vip rv=0
+	typeset i key normdscp normvip rv=0
 
 	# Continue on through all of the status even if some parts
 	# of it fail.  Get everything we can.
 	NoFail=1
 
-	_init || rv=$?
+	init || rv=$?
 
 	# Check all of the DSRs.
-	[ $(_Dsr_configured_dsr_count) -gt 0 ] || [ $AllOpt -ne 0 ] ||
-		{ echo "No configured DSRs found."; return 0; }
+	(( $(Dsr_configured_dsr_count) > 0 )) || (( AllOpt != 0 )) ||
+		{ print -- "No configured DSRs found."; return 0; }
 
-	[ ${#Lo_ip[@]} -gt 0 ] || [ ${#Iptables_ip_dscp[@]} -gt 0 ] ||
-		{ echo "No loopback aliases or iptables rules found."; return 0; }
+	(( ${#Lo_keys[@]} > 0 )) || (( ${#Iptables_keys[@]} > 0 )) ||
+		{ print -- "No loopback aliases or iptables rules found."; return 0; }
 
-	[ "$NoHeader" == "yes" ] || _Dsr_print_dsr_header
+	[[ $NoHeader == yes ]] || Dsr_print_dsr_header
 
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
-		[ $AllOpt -eq 1 ] || [ ${Dsr_dsrsrc[$key]} == "configured" ] || continue
-		_Dsr_print_one_dsr "$i" || rv=1
+	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
+		extractkey ${Dsr_keys[$i]} key normvip normdscp
+
+		(( AllOpt == 1 )) || [[ ${Dsr[$key].dsrsrc} == configured ]] || continue
+		Dsr_print_one_dsr "$i" || rv=1
 	done
 
-	[ $AllOpt -eq 0 ] || _Lo_print_unconfigured
-	[ $AllOpt -eq 0 ] || _Iptables_print_unconfigured
+	(( AllOpt == 0 )) || { Lo_print_unconfigured; Iptables_print_unconfigured; }
 
 	return $rv
 }
 
 # Display a one line DSR status.
+# Returns
+#   0 if all of the configured DSRs are started.
+#   1 if none of the configured DSRs is started or if an error occurred
+#         in processing the configuration file or obtaining the loopbacks
+#         or iptables rules.
+#   3 if some, but not all configured DSRs are started.
 function check
 {
-	typeset dscp i vip key num_started=0 rv=0
+	typeset i key normdscp normvip num_started=0 rv=0
 
 	# Continue on through all of the status even if some parts
 	# of it fail.  Get everything we can.
 	NoFail=1
 
-	_init >/dev/null 2>&1 ||
-		{ rv=$?; echo "DSR configuration error discovered."; return $rv; }
+	init >/dev/null 2>&1 || \
+		{ rv=$?; print -- "DSR configuration error discovered."; return $rv; }
 
 	# Check all of the DSRs.
-	[ $(_Dsr_configured_dsr_count) -gt 0 ] ||
-		{ echo "No configured DSRs found."; return 3; }
+	(( $(Dsr_configured_dsr_count) > 0 )) || \
+		{ print -- "No configured DSRs found."; return 3; }
 
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
+		extractkey ${Dsr_keys[$i]} key normvip normdscp
 
 		# Skip DSRs that weren't read from the config files.
-		[ ${Dsr_dsrsrc[$key]} == "configured" ] || continue
+		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 
-		[ ${Dsr_state[$key]} != "started" ] || (( num_started++ )) || true
+		[[ ${Dsr[$key].state} != started ]] || (( num_started++ )) || :
 	done
 
-	if [ $num_started == 0 ]; then
-		echo "No DSRs started."
+	if (( num_started == 0 )); then
+		print -- "No DSRs started."
 		rv=1
-	elif [ $num_started == ${#Dsr_ip_dscp[@]} ]; then
-		echo "All DSRs started."
+	elif (( num_started == ${#Dsr_keys[@]} )); then
+		print -- "All DSRs started."
 	else
-		echo "Some DSRs not started."
+		print -- "Some DSRs not started."
 		rv=3
 	fi
 
@@ -1940,9 +2052,9 @@ function check
 # If there are conflicts in the conf files, then nothing gets started.
 #
 # If there are failures while starting the DSRs, then we return to the state
-# of the DSRs when we started.  If we started a DSR, then it is stopped.  DSRs
-# that are not configured are left unchanged.  iptables rules and loopbacks
-# that are set but are not configured are also left unchanged.
+# of the DSRs when we started.  If we started a DSR, then it is stopped.
+# Loopbacks and iptables rules that were not started by this script are
+# left unchanged.
 #
 # Returns
 #   0 if all configured DSRs are successfully started
@@ -1950,80 +2062,81 @@ function check
 #
 function startdsrs
 {
-	typeset dscp i vip key rv=0
+	typeset i normdscp normvip key rv=0 vip
 
-	_init || return 1
+	init || return 1
 
 	# Start all of the configured DSRs.
-	for ((i=0; i<${#Dsr_ip_dscp[@]}; i++)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
+		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		vip=${Dsr[$key].vipname}
 
 		# Skip DSRs that weren't read from the config files.
-		[ ${Dsr_dsrsrc[$key]} == "configured" ] || continue
+		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 
-		vprt2 "====== Starting DSR $vip=$dscp"
+		vprt2 "====== Starting DSR $vip=$normdscp"
 
-		[ "${Dsr_state[$key]}" != "started" ] || continue
+		[[ ${Dsr[$key].state} != started ]] || continue
 
-		Dsr_state[$key]="starting"
+		Dsr[$key].state=starting
 
-		! _Dsr_l3dsr "$vip" "$dscp" || \
-		_Iptables_start "$vip" "$dscp" || \
-			{ Dsr_state[$key]="error"; rv=1; break; }
+		! Dsr_l3dsr "$normvip" "$normdscp" || \
+		Iptables_start "$normvip" "$normdscp" || \
+			{ Dsr[$key].state=error; rv=1; break; }
 
-		_Lo_start "$vip" || { Dsr_state[$key]="error"; rv=1; break; }
+		Lo_start "$normvip" || \
+			{ Dsr[$key].state=error; rv=1; break; }
 
-		Dsr_state[$key]="started"
+		Dsr[$key].state=started
 	done
 
-	[ $rv -eq 0 ] || _Dsr_restore_dsrs_to_orig_state
+	(( rv == 0 )) || Dsr_restore_dsrs_to_orig_state
 
 	return $rv
 }
 
 function stopdsrs
 {
-	typeset dscp i vip key
+	typeset dscp i key normdscp normvip vip
 
 	# We try as hard as we can to stop the DSRs even if we have
 	# some failures.
 	No_Fail=1
 
-	_init || true
+	init || :
 
 	# Stop all of the DSRs in reverse order.
-	for ((i=${#Dsr_ip_dscp[@]}-1; i>=0; i--)) do
-		vip=${Dsr_ip_dscp[$i]%%,*}
-		dscp=${Dsr_ip_dscp[$i]##*,}
-		key=$(makekey "$vip" "$dscp")
+	for ((i=${#Dsr_keys[@]}-1; i>=0; i--)); do
+		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		vip=${Dsr[$key].vipname}
 
 		# Skip DSRs that weren't read from the config files.
-		[ ${Dsr_dsrsrc[$key]} == "configured" ] || continue
+		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 
-		vprt2 "====== Stopping DSR $vip=${Dsr_dscp[$key]}"
+		vprt2 "====== Stopping DSR $vip=${Dsr[$key].dscp}"
 
-		! _Dsr_l3dsr "$vip" "$dscp" || _Iptables_stop "$vip" "$dscp"
-		_Lo_stop "$vip"
+		! Dsr_l3dsr "$normvip" "$normdscp" || \
+			Iptables_stop "$normvip" "$normdscp"
+		Lo_stop "$normvip"
 	done
 
 	# If $AllOpt is set, then remove all the DSRs we can find.
-	[ $AllOpt -eq 1 ] || return 0
+	(( AllOpt == 1 )) || return 0
 
-	_Iptables_reread_iptables
-	_Lo_reread_loopbacks
+	Iptables_reread_iptables
+	Lo_reread_loopbacks
 
-	for ((i=0; i<${#Iptables_ip_dscp[@]}; i++)) do
-		vip=${Iptables_ip_dscp[$i]%%,*}
-		dscp=${Iptables_ip_dscp[$i]##*,}
+	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
+		extractkey ${Iptables_keys[$i]} key normvip normdscp
+		vip=${Iptables[$key].vipname}
+		dscp=${Iptables[$key].dscp}
 		vprt2 "====== Removing iptables rule $vip=$dscp"
-		_Iptables_stop "$vip" "$dscp"
+		Iptables_stop "$normvip" "$normdscp"
 	done
 
-	for ((i=0; i<${#Lo_ip[@]}; i++)) do
-		vprt2 "====== Removing loopback alias ${Lo_ip[$i]}"
-		_Lo_stop "${Lo_ip[$i]}"
+	for ((i=0; i<${#Lo_keys[@]}; i++)); do
+		vprt2 "====== Removing loopback alias ${Lo_keys[$i]}"
+		Lo_stop "${Lo_keys[$i]}"
 	done
 
 	return 0
@@ -2035,7 +2148,7 @@ function stopdsrs
 #
 function cleanup
 {
-	_Dsr_restore_dsrs_to_orig_state
+	Dsr_restore_dsrs_to_orig_state
 
 	exit 1
 }
@@ -2060,9 +2173,9 @@ do
     case $OPTION in
 	a)      AllOpt=1
 		;;
-	d)      ConfigDir="$OPTARG"
+	d)      ConfigDir=$OPTARG
 		;;
-	f)      ConfigFile="$OPTARG"
+	f)      ConfigFile=$OPTARG
 		;;
 	n)      NoRun=yes
 		;;
@@ -2070,43 +2183,34 @@ do
 		;;
 	x)      NoHeader=yes
 		;;
-	h)      echo "$Usage"
+	h)      print -- "$Usage"
 		exit 0
 		;;
-	\?)     echo "$Usage" >&2
+	\?)     print -u2 -- "$Usage"
 		exit 1
 		;;
     esac
 done
 
-export VerboseLevel
-
 # Shift away all option arguments.
-shift `expr $OPTIND - 1`
+shift $(( OPTIND - 1 ))
 
-[ $# -ge 1 ] || { echo "Missing action argument." >&2; exit 1; }
+(( $# >= 1 )) || { print -u2 -- "Missing action argument."; exit 1; }
 
-Action="$1"
+Action=$1
 shift
-
-function traperr
-{
-        typeset lno="$1"
-
-	echo Command \"$BASH_COMMAND\" failed at line $lno. Exiting.
-	exit 1
-}
 
 # We set pipefail so that we can determine if anything in the entire pipeline
 # failed.
 set -o pipefail
-#set -o errexit
-#set -o errtrace
-#trap 'traperr $LINENO' ERR
+set -o nounset
+set -o errexit
 
-trap "cleanup" 1 2 3 9
+trap "cleanup" HUP INT QUIT TERM
 
-case "$Action" in
+typeset retval=0
+
+case $Action in
   check)            check_root
 		    check
 		    retval=$?
@@ -2118,15 +2222,18 @@ case "$Action" in
   restart)          check_root
 		    stopdsrs
 		    startdsrs
+		    retval=$?
 		    ;;
   start)            check_root
 		    startdsrs
+		    retval=$?
 		    ;;
   stop)             check_root
 		    stopdsrs
+		    retval=$?
 		    ;;
-  *)                echo "Invalid action provided ($Action)" >&2
-		    echo "$Usage" >&2
+  *)                print -u2 -- "Invalid action provided ($Action)"
+		    print -u2 -- "$Usage"
 		    retval=1
 		    ;;
 esac
