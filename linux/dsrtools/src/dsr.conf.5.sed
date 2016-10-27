@@ -6,7 +6,7 @@ dsr.conf \- configuration file for DSRs
 
 The \fBdsrctl\fP command parses all files that end with \fI.conf\fP in
 \fB/etc/dsr.d\fP as DSR configuration files (unless specific configuration files
-are specified on the command line).  The \fI.conf\fP files are parsed
+are provided on the command line).  The \fI.conf\fP files are parsed
 in a sorted order that is defined by the locale specified in the environment.
 
 \fBdsrctl\fP validates the input line looking for a VIP address and optionally
@@ -46,7 +46,7 @@ case hex letters are supported.  Mixed IPv6/IPv4 addressing is not supported
 allowed within the colon-separated groups of the IPv6 address.
 
 The maximum DSCP value is 63.  The DSCP value may be specified as a decimal
-(\fIe.g.\fP 33), octal (\fIe.g.\fP 041), or hex (\fIe.g.\fP 0x21) value.
+(\fIe.g.\fP, 33), octal (\fIe.g.\fP, 041), or hex (\fIe.g.\fP, 0x21) value.
 \fBdsrctl\fP does not stop you from using a DSCP value of 0, but since this is
 the likely default value for the DSCP in most packets, it is a poor choice.
 

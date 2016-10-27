@@ -118,6 +118,7 @@ displaying status information.
 %changelog
 * Wed Oct 26 2016 Wayne Badger <badger@yahoo-inc.com> 1.2.0-20161026
 - Style rewrite
+- Remove kmod-iptables-daddr dependency
 - Add normalization of VIPs and DSCPs
 - Fix use of IPv6 addresses with upper/lower case
 - update man pages

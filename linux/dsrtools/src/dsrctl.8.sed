@@ -233,7 +233,7 @@ displayed when the \fB-a\fP option is requested.
 
 .SH "RETURN VALUES"
 .PP
-Exit status is 0 if OK, 1 if there are errors (e.g. failure to start the DSR
+Exit status is 0 if OK, 1 if there are errors (\fIe.g.\fP, failure to start the DSR
 configuration, syntax errors, failure to
 find the configuration file, configuration errors in the \fI.conf\fP files,
 not executing as root, running on unsupported RHEL releases, etc.).
