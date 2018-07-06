@@ -119,7 +119,7 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	const struct xt_daddr_tginfo *daddrinfo =
 		(const struct xt_daddr_tginfo *)target->data;
 
-	printf("--set-daddr ");
+	printf(" --set-daddr ");
 	print_daddr(&daddrinfo->u.daddr);
 }
 
