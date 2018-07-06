@@ -193,7 +193,7 @@ daddr_tg4_save(const void *entry, const struct xt_entry_target *target)
 	const struct xt_daddr_tginfo *daddrinfo =
 		(const struct xt_daddr_tginfo *)target->data;
 
-	printf("--set-daddr ");
+	printf(" --set-daddr ");
 	print_daddr4(&daddrinfo->daddr.in);
 }
 
@@ -204,7 +204,7 @@ daddr_tg6_save(const void *entry, const struct xt_entry_target *target)
 	const struct xt_daddr_tginfo *daddrinfo =
 		(const struct xt_daddr_tginfo *)target->data;
 
-	printf("--set-daddr ");
+	printf(" --set-daddr ");
 	print_daddr6(&daddrinfo->daddr.in6);
 }
 
