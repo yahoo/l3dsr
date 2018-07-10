@@ -95,7 +95,7 @@ print_daddr(u_int32_t daddr)
 	unsigned char *p = (unsigned char *)&daddr;
 
 	for (i = 0 ; i < sizeof(daddr) ; ++i)
-		printf("%d%s", p[i], (i<3)?".":"");
+		printf("%d%s", p[i], (i<3)?".":" ");
 }
 
 /* Prints out the targinfo. */

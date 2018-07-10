@@ -96,7 +96,7 @@ print_daddr(const struct in6_addr *daddr)
 
 	n2pr = inet_ntop(AF_INET6, daddr, p, INET6_ADDRSTRLEN);
 
-	printf("%s", n2pr ? p : "[bad addr]");
+	printf("%s ", n2pr ? p : "[bad addr]");
 }
 
 /* Prints out the targinfo. */

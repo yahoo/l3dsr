@@ -145,7 +145,11 @@ print_daddr4(const struct in_addr *daddr)
 
 	n2pr = inet_ntop(AF_INET, daddr, p, INET_ADDRSTRLEN);
 
+#if XTABLES_VERSION_CODE > 5
 	printf("%s", n2pr ? p : "[bad addr]");
+#else
+	printf("%s ", n2pr ? p : "[bad addr]");
+#endif
 }
 
 
@@ -157,7 +161,11 @@ daddr_tg4_print(const void *entry,
 	const struct xt_daddr_tginfo *daddrinfo =
 		(const struct xt_daddr_tginfo *)target->data;
 
+#if XTABLES_VERSION_CODE > 5
+	printf(" DADDR set ");
+#else
 	printf("DADDR set ");
+#endif
 	print_daddr4(&daddrinfo->daddr.in);
 }
 
@@ -170,7 +178,11 @@ print_daddr6(const struct in6_addr *daddr)
 
 	n2pr = inet_ntop(AF_INET6, daddr, p, INET6_ADDRSTRLEN);
 
+#if XTABLES_VERSION_CODE > 5
 	printf("%s", n2pr ? p : "[bad addr]");
+#else
+	printf("%s ", n2pr ? p : "[bad addr]");
+#endif
 }
 
 
@@ -182,7 +194,11 @@ daddr_tg6_print(const void *entry,
 	const struct xt_daddr_tginfo *daddrinfo =
 		(const struct xt_daddr_tginfo *)target->data;
 
+#if XTABLES_VERSION_CODE > 5
+	printf(" DADDR set ");
+#else
 	printf("DADDR set ");
+#endif
 	print_daddr6(&daddrinfo->daddr.in6);
 }
 
@@ -193,7 +209,11 @@ daddr_tg4_save(const void *entry, const struct xt_entry_target *target)
 	const struct xt_daddr_tginfo *daddrinfo =
 		(const struct xt_daddr_tginfo *)target->data;
 
+#if XTABLES_VERSION_CODE > 5
+	printf(" --set-daddr ");
+#else
 	printf("--set-daddr ");
+#endif
 	print_daddr4(&daddrinfo->daddr.in);
 }
 
@@ -204,7 +224,11 @@ daddr_tg6_save(const void *entry, const struct xt_entry_target *target)
 	const struct xt_daddr_tginfo *daddrinfo =
 		(const struct xt_daddr_tginfo *)target->data;
 
+#if XTABLES_VERSION_CODE > 5
+	printf(" --set-daddr ");
+#else
 	printf("--set-daddr ");
+#endif
 	print_daddr6(&daddrinfo->daddr.in6);
 }
 
