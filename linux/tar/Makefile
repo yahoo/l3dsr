@@ -2,7 +2,7 @@
 # Makes the source tarball.
 #
 
-include macros.mk package.mk
+include ../macros.mk ../package.mk
 
 subdirs = \
 	extensions-1.2 \
@@ -12,7 +12,7 @@ subdirs = \
 	kmod-xt-older \
 	kmod-xt
 
-include $(addsuffix /files.mk,$(subdirs))
+include $(addsuffix /files.mk,$(addprefix ../,$(subdirs)))
 
 srcfiles += \
 	LICENSE \

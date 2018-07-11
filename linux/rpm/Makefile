@@ -9,7 +9,7 @@
 # Also see rpmdefs.mk for rarely set optional macros.
 #
 
-include macros.mk package.mk rpmdefs.mk
+include ../macros.mk ../package.mk rpmdefs.mk
 
 ifdef TOPDIR
   topdir = $(TOPDIR)

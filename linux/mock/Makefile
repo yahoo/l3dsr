@@ -20,7 +20,7 @@ ifdef DIST
   endif
 endif
 
-include macros.mk package.mk rpm/rpmdefs.mk
+include ../macros.mk ../package.mk ../rpm/rpmdefs.mk
 
 MOCK ?= mock
 
