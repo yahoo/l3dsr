@@ -19,10 +19,10 @@
   %define kmod_name iptables-daddr
 %endif
 %if 0%{!?kmod_driver_version:1}
-  %define kmod_driver_version 0.7.0
+  %define kmod_driver_version 0.8.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20160204
+  %define kmod_rpm_release 20180711
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -296,6 +296,9 @@ done
 
 
 %changelog
+* Wed Jul 11 2018 Quentin Barnes <qbarnes@oath.com> 0.8.0-20180711
+- Print appropriate leading or trailing whitespace for messages.
+
 * Thu Feb 04 2016 Quentin Barnes <qbarnes@yahoo-inc.com> 0.7.0-20160204
 - Packaging only changes for primarily building with mock.
 
