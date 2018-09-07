@@ -68,8 +68,8 @@ files that end with \fI.conf\fP are considered configuration files and all
 others are ignored.
 
 .SH AUTHOR
-Wayne Badger, Yahoo, Inc.
+Wayne Badger, Oath, Inc.
 .SH "REPORTING BUGS"
-Report bugs to <linux\-kernel@yahoo\-inc.com>.
+Report bugs to <linux\-kernel\-team@oath.com>.
 .SH "SEE ALSO"
 .BR dsrctl (8)

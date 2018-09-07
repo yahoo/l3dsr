@@ -9,7 +9,7 @@
 # Also see rpmdefs.mk for rarely set optional macros.
 #
 
-include macros.mk package.mk rpmdefs.mk
+include ../package.mk rpmdefs.mk
 
 ifdef TOPDIR
   topdir = $(TOPDIR)
@@ -20,16 +20,7 @@ else
   endif
 endif
 
-ifdef DIST
-  ifeq ($(DIST),"")
-    dist = %{nil}
-  else
-    dist = $(DIST)
-  endif
-endif
-
 rpmpkgs  := $(shell rpm -q $(build_defs) --specfile '$(specfile)' 2> /dev/null)
-rpmpkgs  := $(rpmpkgs)
 
 pkgarches = $(foreach p,$(rpmpkgs),$(lastword $(subst ., ,$p)))
 rpmdirs   = $(foreach a,$(pkgarches),$(topdir)/RPMS/$a/)
@@ -63,11 +54,11 @@ $(tardir)/$(zsrctarfile):
 	$(MAKE) -C '$(@D)' '$(@F)'
 
 $(rpmtarfile): $(tardir)/$(zsrctarfile) $(extrasrcfiles) $(specfile)
-	bzip2 -cdk '$<' > '$@'
+	xz -cdk '$<' > '$@'
 	tar -rf '$@' $(extrasrcfiles) '$(specfile)'
 
 $(zrpmtarfile): $(rpmtarfile)
-	bzip2 -czk '$<' > '$@'
+	xz -czk '$<' > '$@'
 
 $(srpm): $(zrpmtarfile)
 	rpmbuild -ts --target=noarch $(rpmbuild_args) '$<'
@@ -84,7 +75,7 @@ print_pkgs:
 	@echo '$(rpms)'
 
 clean clobber distclean:
-	$(call scrub_files_call,$($@_files))
+	$(RM) -r -- $($@_files)
 	$(MAKE) -C '$(tardir)' $@
 
 

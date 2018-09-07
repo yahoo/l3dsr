@@ -11,9 +11,7 @@
 #  See INSTALL for further examples.
 #
 
-include macros.mk package.mk
-
-MAKEFLAGS += -I..
+include macros.mk
 
 PPS += rpm mock
 
@@ -23,22 +21,24 @@ $(eval \
     $(pp)-%: %;$(nl))\
 )
 
-all:
-	$(MAKE) -C src
-
-install:
-	$(MAKE) -C src $@
+all install:
+	$(MAKE) -C src '$@'
 
 tar:
-	$(MAKE) -C $@
+	$(MAKE) -C '$@' all
+
+src-% tar-%:
+	$(MAKE) -C '$(subst -$*,,$@)' '$*'
 
 spkg pkgs print_spkg print_pkgs:
 	$(if $(PP),$(MAKE) -C '$(PP)' $@)
 
 clean clobber distclean:
 	$(if $(PP),$(MAKE) -C '$(PP)' $@)
-	$(if $(PP),,$(MAKE) -C src clean)
+	$(MAKE) -C tar $@
+	$(MAKE) -C src $@
 
 
-.PHONY: all install tar spkg pkgs print_spkg print_pkgs clean clobber distclean
+.PHONY: all install tar spkg pkgs print_spkg print_pkgs
+.PHONY: clean clobber distclean
 .DELETE_ON_ERROR:

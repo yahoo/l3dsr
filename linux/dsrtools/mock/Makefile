@@ -20,7 +20,7 @@ ifdef DIST
   endif
 endif
 
-include macros.mk package.mk rpm/rpmdefs.mk
+include ../macros.mk ../package.mk ../rpm/rpmdefs.mk
 
 MOCK ?= mock
 
@@ -97,7 +97,6 @@ print_pkgs:
 clean clobber distclean:
 	$(call scrub_files_call,$($@_files))
 	$(MAKE) -C '$(rpmdir)' '$@'
-	$(MAKE) -C '$(tardir)' '$@'
 
 
 .PHONY: all spkg pkgs print_spkg print_pkgs clean clobber distclean

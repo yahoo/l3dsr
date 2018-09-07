@@ -92,7 +92,7 @@ $(instreadme): $(readme) | $(instconfd)
 $(instdirs):
 	mkdir -p -- '$@'
 
-clean distclean:
+clean clobber distclean:
 	$(foreach file,\
 		$(filter $(wildcard $($(@)_targets)),$($(@)_targets)),\
 		rm -rf -- '$(file)'\
@@ -115,5 +115,5 @@ clean distclean:
 		'$<' > '$@' || rm -f -- '$@'
 	chmod -w -- '$@'
 
-.PHONY: all install clean distclean
+.PHONY: all install clean clobber distclean
 .DELETE_ON_ERROR:

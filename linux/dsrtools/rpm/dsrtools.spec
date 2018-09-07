@@ -16,10 +16,10 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.2.0
+  %define pkg_version 1.2.1
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20161026
+  %define pkg_release 20180907
 %endif
 
 Summary: DSR tools
@@ -31,10 +31,10 @@ Group: System Environment/System
 %if 0%{?url:1}
 URL: %{url}
 %endif
-Vendor: Yahoo Inc.
-Packager: Wayne Badger <badger@yahoo-inc.com>
+Vendor: Oath, Inc.
+Packager: Wayne Badger <badger@oath.com>
 
-%define with_systemd  %{?_without_systemd:0}%{?!_without_systemd:1}
+%define with_systemd  %{?_without_systemd:0}%{!?_without_systemd:1}
 
 %if 0%{?rhel_version} < 700
 %define with_systemd 0
@@ -57,7 +57,7 @@ BuildRequires: systemd
 %endif
 
 
-Source: %{name}-%{version}.tar.bz2
+Source: %{name}-%{version}.tar.xz
 
 %description
 dsrtools is a package that manages DSR (Direct Server Return) machines by
@@ -116,6 +116,9 @@ displaying status information.
 
 
 %changelog
+* Fri Sep 7 2018 Wayne Badger <badger@oath.com> 1.2.1-20180907
+- Update packaging.
+
 * Wed Oct 26 2016 Wayne Badger <badger@yahoo-inc.com> 1.2.0-20161026
 - Style rewrite
 - Remove kmod-iptables-daddr dependency

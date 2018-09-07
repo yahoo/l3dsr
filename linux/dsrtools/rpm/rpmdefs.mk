@@ -2,6 +2,7 @@
 # Sourced by Makefiles for setting default macro definitions for rpm builds.
 #
 # Rarely set optional macros used by spec file:
+#   DIST		%{dist} for rpmbuild or '""' for unsetting it
 #   PACKAGE		name of package
 #   RELEASE		release of package
 #   BUILD_NUMBER	build number of package
@@ -17,14 +18,17 @@
 
 specfile   = $(package).spec
 
-extrasrcfiles =
-
 rpmtarfile  = $(srctarfile)
-zrpmtarfile = $(rpmtarfile).bz2
+zrpmtarfile = $(rpmtarfile).xz
 
 build_defs = \
-	     $(if $(dist),--define 'dist $(dist)') \
+	     $(strip \
+	     $(if $(DIST),\
+	       --define 'dist $(if $(subst x"",,x$(DIST)),$(DIST),%{nil})') \
+	     $(if $(PACKAGE),--define 'pkg_name $(PACKAGE)') \
+	     $(if $(VERSION),--define 'pkg_version $(VERSION)') \
+	     $(if $(RELEASE),--define 'pkg_release $(RELEASE)') \
 	     $(if $(BUILD_NUMBER),--define 'build_number $(BUILD_NUMBER)') \
 	     $(if $(OSMACRO),--define '$(OSMACRO) $(OSMACROVER)') \
 	     $(if $(URL),--define 'url $(URL)') \
-	     $(EXTRA_BUILD_DEFS)
+	     $(EXTRA_BUILD_DEFS))
