@@ -16,10 +16,10 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.2.1
+  %define pkg_version 1.2.2
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20180907
+  %define pkg_release 20181015
 %endif
 
 Summary: DSR tools
@@ -116,6 +116,10 @@ displaying status information.
 
 
 %changelog
+* Mon Oct 15 2018 Wayne Badger <badger@oath.com> 1.2.2-20181015
+- Properly handle files that don't contain terminating newline.
+- Fix "parameter not set" bug that occurred on ksh-20120801-32.el7 and later.
+
 * Fri Sep 7 2018 Wayne Badger <badger@oath.com> 1.2.1-20180907
 - Update packaging.
 

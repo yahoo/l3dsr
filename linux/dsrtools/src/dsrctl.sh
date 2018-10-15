@@ -628,68 +628,101 @@ function Dsr_validate_conf_line
 }
 
 #
+# Dsr_process_conf_line processes a single line from the config file.
+#
+# The given line is validated and if found to be a valid VIP line, the
+# appropriate array entries are created (Dsr, Lo, Iptables).
+#
+# Returns
+#     0   Valid line (empty/comment/VIP).
+#             If a VIP line was found, then it was valid and properly inserted
+#             into the data arrays (Dsr, Lo, Iptables).
+#     1   Not a valid VIP line.
+#
+function Dsr_process_conf_line
+{
+	typeset line=$1
+	typeset lineno=$2
+	typeset config_file=$3
+
+	typeset dscp key linevalid name rv=0
+	typeset validaterv validline vip vipnumeric
+
+	validline=$(Dsr_validate_conf_line "$line")
+	validaterv=$?
+
+	# These are lines that are empty or only contain comments.
+	(( validaterv != 0 )) || return 0;
+
+	if (( validaterv == 2 )); then
+		# These are invalid lines.
+		print -- "Invalid config line at $config_file, line $lineno.  $validline"
+		print -- "Aborting."
+		exit 1
+	fi
+
+	# Use validline here since it's preprocessed to an easier-to-handle form
+	case $validline in
+	  Version*)
+		# This is the Version line.
+		name=${validline%%=*}
+		Version=${validline##$name=}
+		;;
+	  *)
+		# Split the line into VIP and DSCP.
+		vip=${validline%%=*}
+		dscp=
+		[[ $validline != *=* ]] || dscp=${validline##$vip=}
+
+		# Initialize the DSR.
+		Dsr_init "configured" "$vip" "$dscp" "$config_file" "$lineno" || \
+			return 1
+
+		# The key created here by makekey takes a VIP that is
+		# one of these.
+		#     FQDN, if that's what was provided
+		#     Otherwise, the provided numeric VIP
+		#
+                # The Dsr_init above created associative array elements for
+                # both types of keys.
+		key=$(makekey_normalized "$vip" "$dscp")
+		vipnumeric=${Dsr[$key].vipnumeric}
+
+		Lo_init configured "$vipnumeric" "$vip" "" || rv=1
+
+		[[ -z $dscp ]] || \
+			Iptables_init configured \
+				       "$vipnumeric" \
+				       "$vip" \
+				       "$dscp" || rv=1
+
+		;;
+	esac
+
+	return $rv
+}
+
+#
 # Read the dsr configuration file.
 #
 function Dsr_read_config_file
 {
 	typeset config_file=$1
 
-	typeset dscp key line lineno linevalid name rv=0
-	typeset str validaterv validline vip vipnumeric
+	typeset line lineno rv=0
 
 	lineno=0
 	while IFS= read -r line; do
 		(( lineno++ ))
-
-		validline=$(Dsr_validate_conf_line "$line")
-		validaterv=$?
-
-		# These are lines that are empty or only contain comments.
-		(( validaterv != 0 )) || continue;
-
-		if (( validaterv == 2 )); then
-			# These are invalid lines.
-			print -- "Invalid config line at $config_file, line $lineno.  $validline"
-			print -- "Aborting."
-			exit 1
-		fi
-
-		# Use validline here since it's preprocessed to an easier-to-handle form
-		case $validline in
-		  Version*)
-			# This is the Version line.
-			name=${validline%%=*}
-			Version=${validline##$name=}
-			;;
-		  *)
-			# Split the line into VIP and DSCP.
-			vip=${validline%%=*}
-			dscp=
-			[[ $validline != *=* ]] || dscp=${validline##$vip=}
-
-			# Initialize the DSR.
-			Dsr_init "configured" "$vip" "$dscp" "$config_file" "$lineno" || \
-				{ rv=1; continue; }
-
-			# The key created here by makekey takes a VIP that is
-			# one of these.  The Dsr_init above created associative
-			# array elements for both types of keys.
-			#     FQDN, if that's what was provided
-			#     Otherwise, the provided numeric VIP
-			key=$(makekey_normalized "$vip" "$dscp")
-			vipnumeric=${Dsr[$key].vipnumeric}
-
-			Lo_init configured "$vipnumeric" "$vip" "" || rv=1
-
-			[[ -z $dscp ]] || \
-				Iptables_init configured \
-				               "$vipnumeric" \
-				               "$vip" \
-				               "$dscp" || rv=1
-
-			;;
-		esac
+		Dsr_process_conf_line "$line" "$lineno" "$config_file" || rv=1
 	done < $config_file
+
+	# If there is anything left in $line, then the last line didn't
+	# have a terminating newline.  Process the last line here.
+	if [[ -n $line ]]; then
+		(( lineno++ ))
+		Dsr_process_conf_line "$line" "$lineno" "$config_file" || rv=1
+	fi
 
 	return $rv
 }
@@ -1005,7 +1038,7 @@ function Dsr_validate_dsr
 	Dsr_validate_dscp "$dscp" "$config_file" "$lineno" || return 2
 
 	normvip=$(normalize_vip "$vipnumeric")
-	normdscp=$(normalize_dscp $dscp)
+	normdscp=$(normalize_dscp "$dscp")
 
 	if Dsr_find_configured_dsr_by_ip_and_dscp "$normvip" "$normdscp"; then
 		# We have found an exact duplicate.
