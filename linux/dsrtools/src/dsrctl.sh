@@ -14,6 +14,7 @@ GotLoopbacksAlready=0
 GotConfAlready=0
 GotIptablesAlready=0
 NoHeader=no
+IptablesChain=PREROUTING
 
 # We keep different maxlens for when we print with the -a option and when we
 # just print the configured DSRs.
@@ -656,8 +657,8 @@ function Dsr_process_conf_line
 
 	if (( validaterv == 2 )); then
 		# These are invalid lines.
-		print -- "Invalid config line at $config_file, line $lineno.  $validline"
-		print -- "Aborting."
+		print -u2 -- "Invalid config line at $config_file, line $lineno.  $validline"
+		print -u2 -- "Aborting."
 		exit 1
 	fi
 
@@ -744,13 +745,13 @@ function Dsr_read_configuration
 
 	if [[ -n $ConfigFile ]]; then
 		[[ -r "$ConfigFile" ]] || \
-			{ print -- "Cannot read the configuration file ($ConfigFile)."; return 1; }
+			{ print -u2 -- "Cannot read the configuration file ($ConfigFile)."; return 1; }
 
 		vprt2 "===== Loading config file $ConfigFile"
 		Dsr_read_config_file "$ConfigFile" || return 1
 	else
 		if [[ ! -d "$ConfigDir" ]]; then
-			print -- "Cannot find the configuration directory ($ConfigDir)."
+			print -u2 -- "Cannot find the configuration directory ($ConfigDir)."
 			return 0
 		fi
 
@@ -760,7 +761,7 @@ function Dsr_read_configuration
 		rv=$?
 		IFS=$oifs
 		(( rv == 0 )) || \
-			{ print -- "Cannot get file list from \"$ConfigDir\"."; return 1; }
+			{ print -u2 -- "Cannot get file list from \"$ConfigDir\"."; return 1; }
 
 		for f in "${files[@]}"; do
 			vprt2 "===== Loading config file ($f)"
@@ -1159,7 +1160,7 @@ function Dsr_find_configured_dsr_by_dscp
 	[[ -n $normdscparg ]] || { print -- "notfound"; return 0; }
 
 	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
-		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 
 		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 		[[ $normdscp == $normdscparg ]] || continue
@@ -1185,7 +1186,7 @@ function Dsr_find_discovered_dsr_by_vip
 	[[ -n $normvip_arg ]] || { print -- "notfound"; return 0; }
 
 	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
-		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 
 		[[ ${Dsr[$key].dsrsrc} == discovered ]] || continue
 		[[ $normvip_arg == $normvip ]] || continue
@@ -1207,7 +1208,7 @@ function Dsr_dbg_print
 	vprt2 "====== Config File Start"
 	vprt2 "======     Number of DSRs = $(Dsr_configured_dsr_count)"
 	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
-		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 
 		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 
@@ -1637,7 +1638,7 @@ function Iptables_get_iptables_af
 
 	typeset conf_normdscp dscp dscp_field dscp_val dscp_val_field i
 	typeset iptablesout iptbl key line lines match_field normdscp normvip
-	typeset oifs pgm str vip vip_field vipnumeric
+	typeset oifs pgm skipchain=1 str vip vip_field vipnumeric
 
 	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
@@ -1683,6 +1684,14 @@ function Iptables_get_iptables_af
 	for line in "${lines[@]}"; do
 		iptbl=($line)
 
+                # We only care about the $IptablesChain chain.  Rules in any
+                # other chains are ignored.
+		if [[ ${iptbl[0]} == Chain ]]; then
+			[[ ${iptbl[1]} == $IptablesChain ]] && skipchain=0 || skipchain=1
+			continue
+		fi
+
+		(( skipchain == 0 )) || continue
 		[[ ${iptbl[0]} == DADDR ]] || continue
 		[[ ${iptbl[$dscp_field]} == DSCP ]] || continue
 		[[ ${iptbl[$match_field]} == match ]] || continue
@@ -1729,7 +1738,7 @@ function Iptables_get_iptables_af
 	done
 
 	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
-		extractkey ${Iptables_keys[$i]} key normvip normdscp
+		extractkey "${Iptables_keys[$i]}" key normvip normdscp
 
 		vip=${Iptables[$key].vipname}
 		vipnumeric=${Iptables[$key].vipnumeric}
@@ -1778,7 +1787,7 @@ function Iptables_get_iptables
 	# multiple times during the execution of the script, we need to zero
 	# the counts out each time.
 	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
-		extractkey ${Iptables_keys[$i]} key normvip normdscp
+		extractkey "${Iptables_keys[$i]}" key normvip normdscp
 		Iptables[$key].rulecnt=0
 	done
 
@@ -1823,7 +1832,7 @@ function Iptables_start
 	dscp=${Iptables[$key].dscp}
 
 	cmd=($pgm -t mangle \
-	          -A PREROUTING \
+	          -A "$IptablesChain" \
 	          -m dscp \
 	          --dscp "$dscp" \
 	          -j DADDR \
@@ -1872,7 +1881,7 @@ function Iptables_stop
 	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
 	cmd=($pgm -t mangle \
-	          -D PREROUTING \
+	          -D "$IptablesChain" \
 	          -m dscp \
 	          --dscp "$dscp" \
 	          -j DADDR \
@@ -1916,7 +1925,7 @@ function Iptables_print_unconfigured
 	typeset i key normdscp normvip iptout vip
 
 	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
-		extractkey ${Iptables_keys[$i]} key normvip normdscp
+		extractkey "${Iptables_keys[$i]}" key normvip normdscp
 
 		[[ ${Iptables[$key].iptsrc} != configured ]] || continue
 
@@ -1951,7 +1960,7 @@ function Iptables_dbg_print
 	vprt2 "====== Iptables Start"
 	vprt2 "======     Number of iptables rules = ${#Iptables_keys[@]}"
 	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
-		extractkey ${Iptables_keys[$i]} key normvip normdscp
+		extractkey "${Iptables_keys[$i]}" key normvip normdscp
 		vip=${Iptables[$key].vipname}
 
 		af=$(addraf "$normvip")
@@ -2024,7 +2033,7 @@ function status
 	[[ $NoHeader == yes ]] || Dsr_print_dsr_header
 
 	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
-		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 
 		(( AllOpt == 1 )) || [[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 		Dsr_print_one_dsr "$i" || rv=1
@@ -2051,14 +2060,14 @@ function check
 	NoFail=1
 
 	init >/dev/null 2>&1 || \
-		{ rv=$?; print -- "DSR configuration error discovered."; return $rv; }
+		{ rv=$?; print -u2 -- "DSR configuration error discovered."; return $rv; }
 
 	# Check all of the DSRs.
 	(( $(Dsr_configured_dsr_count) > 0 )) || \
 		{ print -- "No configured DSRs found."; return 3; }
 
 	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
-		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 
 		# Skip DSRs that weren't read from the config files.
 		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
@@ -2101,7 +2110,7 @@ function startdsrs
 
 	# Start all of the configured DSRs.
 	for ((i=0; i<${#Dsr_keys[@]}; i++)); do
-		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 		vip=${Dsr[$key].vipname}
 
 		# Skip DSRs that weren't read from the config files.
@@ -2140,7 +2149,7 @@ function stopdsrs
 
 	# Stop all of the DSRs in reverse order.
 	for ((i=${#Dsr_keys[@]}-1; i>=0; i--)); do
-		extractkey ${Dsr_keys[$i]} key normvip normdscp
+		extractkey "${Dsr_keys[$i]}" key normvip normdscp
 		vip=${Dsr[$key].vipname}
 
 		# Skip DSRs that weren't read from the config files.
@@ -2160,7 +2169,7 @@ function stopdsrs
 	Lo_reread_loopbacks
 
 	for ((i=0; i<${#Iptables_keys[@]}; i++)); do
-		extractkey ${Iptables_keys[$i]} key normvip normdscp
+		extractkey "${Iptables_keys[$i]}" key normvip normdscp
 		vip=${Iptables[$key].vipname}
 		dscp=${Iptables[$key].dscp}
 		vprt2 "====== Removing iptables rule $vip=$dscp"

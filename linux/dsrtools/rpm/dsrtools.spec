@@ -16,10 +16,10 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.2.2
+  %define pkg_version 1.2.3
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20181015
+  %define pkg_release 20181102
 %endif
 
 Summary: DSR tools
@@ -116,6 +116,11 @@ displaying status information.
 
 
 %changelog
+* Fri Nov 2 2018 Wayne Badger <badger@oath.com> 1.2.3-20181102
+- Only search for iptables rules in the PREROUTING chain.
+- Print error messages to stderr instead of stdout.
+- Resolve quoting issues related to keys.
+
 * Mon Oct 15 2018 Wayne Badger <badger@oath.com> 1.2.2-20181015
 - Properly handle files that don't contain terminating newline.
 - Fix "parameter not set" bug that occurred on ksh-20120801-32.el7 and later.

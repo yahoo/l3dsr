@@ -100,6 +100,9 @@ Stop the DSRs specified by the configuration file(s).
 \fB\-a\fR
 Display status not only for the configured DSRs, but for all iptables rules and
 loopback aliases that are discovered.
+Even with \fB-a\fP, \fBdsrctl\fP does not display iptables rules from iptables
+chains that it normally doesn't use.
+
 
 .TP
 \fB\-d\fR \fIdir\fP

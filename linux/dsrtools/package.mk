@@ -1,5 +1,5 @@
 package = dsrtools
-version = 1.2.2
+version = 1.2.3
 
 pkg_vers       = $(package)-$(version)
 srctardestdir  = $(pkg_vers)
