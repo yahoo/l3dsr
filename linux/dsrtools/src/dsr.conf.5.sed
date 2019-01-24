@@ -1,4 +1,4 @@
-.TH DSR.CONF "5" "October 2016" "dsr.conf __VERSION__" "System Management Commands"
+.TH DSR.CONF "5" "January 2019" "dsr.conf __VERSION__" "System Management Commands"
 .SH NAME
 dsr.conf \- configuration file for DSRs
 
@@ -68,8 +68,8 @@ files that end with \fI.conf\fP are considered configuration files and all
 others are ignored.
 
 .SH AUTHOR
-Wayne Badger, Oath, Inc.
+Wayne Badger, Verizon Media Group
 .SH "REPORTING BUGS"
-Report bugs to <linux\-kernel\-team@oath.com>.
+Report bugs to <linux\-kernel\-team@verizonmedia.com>.
 .SH "SEE ALSO"
 .BR dsrctl (8)

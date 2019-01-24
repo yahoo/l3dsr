@@ -123,6 +123,49 @@ typeset -A Iptables
 #     iptsrc				# source of this iptables rule (configured, discovered)
 #     rulecnt				# number of identical iptables rules for this VIP
 
+
+#
+# Add the requested newpath to the given path variable.
+#
+function addpath
+{
+	nameref path=$1
+	typeset newpath=$2
+
+	[[ -d $newpath ]] || return
+
+        # If newpath already exists in the path variable, then just return.
+	[[ :$path: != *(?):$newpath:*(?) ]] || return
+
+	path="${path:+$path:}$newpath"
+}
+
+#
+# Return a reasonable path for this script to be able to run.
+#
+# Note that initpath ignores the PATH variable provided in the environment for
+# this script when creating the PATH.
+#
+function initpath
+{
+	typeset path
+
+	path=$(/usr/bin/getconf PATH 2>/dev/null || print /usr/bin)
+	[[ -n $path ]] || path=/usr/bin
+
+	addpath path /usr/sbin
+	addpath path /sbin
+
+	print "$path"
+}
+
+# Initialize the PATH to the set of directories needed by this script.
+#
+# initpath ignores the existing PATH variable.
+#
+# PATH must be set before we try to execute any programs in the PATH.
+export PATH=$(initpath)
+
 Usage=$(cat <<EOF
 Usage: $ScriptName [-d <configdir>] [-f <configfile>] [-ahnvx] <action>
        -a       For status, print status for all discovered loopbacks
