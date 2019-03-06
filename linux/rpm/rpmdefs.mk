@@ -21,7 +21,6 @@
 specfile   = $(package).spec
 
 extrasrcfiles = \
-	kmodtool.el5 \
 	kmodtool.el6
 
 rpmtarfile  = $(srctarfile)

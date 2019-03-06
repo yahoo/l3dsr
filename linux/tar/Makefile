@@ -5,11 +5,7 @@
 include ../macros.mk ../package.mk
 
 subdirs = \
-	extensions-1.2 \
-	extensions-1.3 \
 	extensions-1.4 \
-	kmod-ipt \
-	kmod-xt-older \
 	kmod-xt
 
 include $(addsuffix /files.mk,$(addprefix ../,$(subdirs)))

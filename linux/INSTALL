@@ -5,15 +5,6 @@ To build both components of the software, type:
 
     $ make
 
-If your system is relatively current, the iptables plugin will
-be in extensions-1.4/libxt_DADDR.so and the kernel module in
-kmod-xt/xt_DADDR.ko.
-
-If your build fails to compile, you may need to adjust "def_kmoddir"
-and/or "def_lmoddir" to point to one of the other directories
-(extensions-1.{2,3} or kmod-{ipt,xt-older}) for older systems.
-
-
 To install the components, you need to specify the base library path
 with the "libdir" make macro.  Set it to where your system has its
 iptables library modules.  This example assumes it is "/usr/lib64"

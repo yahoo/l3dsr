@@ -1,11 +1,5 @@
 %if 0%{!?rhel_version:1}
   %if 0%{?dist:1}
-    %if "%{dist}" == ".EL"
-      %define rhel_version 406
-    %endif
-    %if "%{dist}" == ".el5"
-      %define rhel_version 505
-    %endif
     %if "%{dist}" == ".el6"
       %define rhel_version 600
     %endif
@@ -22,51 +16,69 @@
   %define kmod_driver_version 0.8.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20180711
+  %define kmod_rpm_release 20190306
 %endif
 
 %if 0%{!?iptables_version_maj:1}
   %define iptables_version_maj 1
 %endif
 %if 0%{!?iptables_version_min:1}
-    %define iptables_version_min 4
-  %if 0%{?rhel_version} == 406
-    %define iptables_version_min 2
-  %endif
-  %if 0%{?rhel_version} == 505
-    %define iptables_version_min 3
-  %endif
+  %define iptables_version_min 4
 %endif
 
 %define extensionsdir extensions-%{iptables_version_maj}.%{iptables_version_min}
 
-%if 0%{!?kmoddir:1}
-  %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 2
-    %define kmoddir kmod-ipt
-  %endif
-  %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 3
-    %define kmoddir kmod-xt-older
-  %endif
-  %if %{iptables_version_maj} == 1 && %{iptables_version_min} == 4
+%define upvar ""
+
+%ifarch ppc64
+  %define kdumpvar kdump
+%endif
+
+# hint: this can he overridden with "--define kvariants foo bar" on the
+# rpmbuild command line, e.g. --define 'kvariants "" smp'
+%{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
+
+%if 0%{?kvariants:1}
+  %if 0%{!?kmoddir:1}
     %define kmoddir kmod-xt
   %endif
+
+  %if 0%{!?kmodtool:1}
+    %if 0%{?rhel_version} == 600
+      # Really only necessary for <= RHEL 6.3.
+      %define kmodtool sh %{_sourcedir}/kmodtool.el6
+    %else
+      %define kmodtool /usr/lib/rpm/redhat/kmodtool
+      %define kmodtooldep 1
+    %endif
+  %endif
+
+  # Create a preinstall and preuninstall scripts as a macro for processing
+  # with sed that ensures any existing xt_DADDR module, if present, can
+  # be removed.  If not, fail.
+  %define pkgko xt_DADDR
+  %define kmodrm rmmod '%{pkgko}' 2> /dev/null || true;if %__grep -qw '^%{pkgko}' /proc/modules;then echo -e >\\&2 "WARNING: Unable to remove current %{pkgko} module!\\\\nRemove iptables rules using DADDR and try again.";exit 1;fi
+  %define prekmodrm if [ "$1" -eq 1 ];then %{kmodrm};fi
+  %define preunkmodrm if [ "$1" -eq 0 ];then %{kmodrm};fi
+
+  %if 0%{?kmodtool:1}
+    %if 0%{?kmod_kernel_version:1}
+      %{expand: %%define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version}.%{_target_cpu} 2>/dev/null)}
+    %else
+      %{expand: %%define kverrel %(%{kmodtool} verrel 2>/dev/null)}
+    %endif
+    # Remove the architecture from kverrel.
+    %define kvr %{lua:\
+    local kvra = rpm.expand("%{kverrel}")
+    local kvr = string.gsub(kvra,".[^.]+$","")
+    print(kvr)}
+  %endif
 %endif
 
-%if 0%{!?kmodtool:1}
-  %define kmodtool /usr/lib/rpm/redhat/kmodtool
-  %if 0%{?rhel_version} == 406
-    %define kmodtool sh %{_sourcedir}/kmodtool.el5
-  %endif
-  %if 0%{?rhel_version} >= 600
-    %define kmodtool sh %{_sourcedir}/kmodtool.el6
-  %endif
-%endif
+%define _prefix %{nil}
 
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} <= 3
-Summary: Iptables destination address rewriting for IPv4
-%else
+
 Summary: Iptables destination address rewriting for IPv4 and IPv6
-%endif
 Name: %{kmod_name}
 Version: %{kmod_driver_version}
 Release: %{kmod_rpm_release}%{?build_number:.%{build_number}}%{?dist}
@@ -75,153 +87,53 @@ Group: Applications/System
 %if 0%{?url:1}
 URL: %{url}
 %endif
-Vendor: Yahoo! Inc.
-Packager: Quentin Barnes <qbarnes@yahoo-inc.com>
+Vendor: Oath Inc.
+Packager: Quentin Barnes <qbarnes@verizonmedia.com>
 
-%if 0%{?rhel_version} == 406
-BuildRequires: module-init-tools
-Requires: module-init-tools >= 3.1-0.pre5.3.10
-%endif
-
-%if 0%{?rhel_version} == 505
-BuildRequires: module-init-tools, redhat-rpm-config
-%endif
-
-%if 0%{?rhel_version} == 600
-BuildRequires: module-init-tools, kernel-abi-whitelists
-# Only needed if building RHEL6 kvariants, skip for now.
-#BuildRequires: redhat-rpm-config >= 9.0.3-40
-%endif
-
-%if 0%{?rhel_version} == 700
-BuildRequires: kmod, kernel-abi-whitelists
-%endif
-
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} == 2
-BuildRequires: iptables-devel >= 1.2.11, iptables-devel < 1.3
-Requires: iptables >= 1.2.11, iptables < 1.3
-%endif
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} == 3
-BuildRequires: iptables-devel >= 1.3.5-5.3, iptables-devel < 1.4
-Requires: iptables >= 1.3.5, iptables < 1.4
-%endif
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} == 4
+%if 0%{?rhel_version:1}
 BuildRequires: iptables-devel >= 1.4.7, iptables-devel < 1.5
 Requires: iptables >= 1.4.7, iptables < 1.5
+  %if 0%{?kvariants:1}
+Requires: %{name}-kmod = %{version}-%{release}
+    %if 0%{?rhel_version} == 600
+BuildRequires: module-init-tools
+    %else
+BuildRequires: kmod
+    %endif
+    %if 0%{?kvr:1}
+BuildRequires: kernel-devel%{?_isa} = %{kvr}
+# Fix this is a later build.
+#BuildRequires: kernel-abi-whitelists = %{kvr}
+BuildRequires: kernel-abi-whitelists
+    %endif
+  %endif
 %endif
-
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} == 3
-%package -n iptables-ipv6-daddr
-Summary: Iptables destination address rewriting for IPv6
-Group: Applications/System
-Requires: iptables-ipv6 >= 1.3.5, iptables-ipv6 < 1.4
-Requires: %{name}-kmod = %{version}
+%if 0%{?kmodtooldep:1}
+BuildRequires: %{kmodtool}
 %endif
-
-Requires: %{name}-kmod >= %{version}
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-%define _prefix %{nil}
 Source0: %{name}-%{version}.tar.bz2
 
-Source50: kmodtool.el5
 Source51: kmodtool.el6
 
-# Create a preinstall and preuninstall scripts as a macro for processing
-# with sed that ensures any existing {ipt,xt}_DADDR module, if present, can
-# be removed.  If not, fail.
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} == 2
-%define pkgko ipt_DADDR
-%else
-%define pkgko xt_DADDR
-%endif
-%define kmodrm rmmod '%{pkgko}' 2> /dev/null || true;if %__grep -qw '^%{pkgko}' /proc/modules;then echo -e >\\&2 "WARNING: Unable to remove current %{pkgko} module!\\\\nRemove iptables rules using DADDR and try again.";exit 1;fi
-%define prekmodrm if [ "$1" -eq 1 ];then %{kmodrm};fi
-%define preunkmodrm if [ "$1" -eq 0 ];then %{kmodrm};fi
-
-%if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
-  %{expand: %%define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version} 2>/dev/null)}
-%else
-  %if 0%{?kmod_kernel_version:1}
-    %{expand: %%define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version}.%{_target_cpu} 2>/dev/null)}
-  %else
-    %{expand: %%define kverrel %(%{kmodtool} verrel 2>/dev/null)}
-  %endif
-%endif
-
-%define upvar ""
-
-%ifarch ppc64
-%define kdumpvar kdump
-%endif
-
-%if 0%{?rhel_version} == 406
-  %ifarch i686
-    %define paevar hugemem
-    %define smpvar smp
-  %endif
-  %ifarch x86_64
-    %define smpvar smp largesmp
-  %endif
-  %ifarch i686 ia64 x86_64
-    %define xenvar xenU
-  %endif
-%endif
-%if 0%{?rhel_version} == 505
-  %ifarch i686
-    %define paevar PAE
-  %endif
-  %ifarch i686 ia64 x86_64
-    %define xenvar xen
-  %endif
-%endif
-
-# hint: this can he overridden with "--define kvariants foo bar" on the
-# rpmbuild command line, e.g. --define 'kvariants "" smp'
-%{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
-
-# Use kmodtool to generate individual kmod subpackages directives.
-%if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
-  %define kmodtemplate rpmtemplate_kmp
-%else
+%if 0%{?kvariants:1} && 0%{?kmodtool:1}
+  # Use kmodtool to generate individual kmod subpackages directives.
   %define kmodtemplate rpmtemplate
   %define kmod_version %{version}
   %define kmod_release %{release}
-%endif
 
-# Too many kvariants overflow the rpm's 8K expand buffer.  Break it down
-# into two lists run separately, enough for now.
-%define ret123() %{?1:%1} %{?2:%2} %{?3:%3}
-%define ret456() %{?4:%4} %{?5:%5} %{?6:%6}
-%{expand: %%define kvariants1 %%ret123 %{kvariants}}
-%{expand: %%define kvariants2 %%ret456 %{kvariants}}
-%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants1} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
-%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants2} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
-
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} == 2
-%define hmsg Enables IPv4 destination address rewriting using iptables rules.
-%else
-%define hmsg Enables IPv4 and IPv6 destination address rewriting using iptables rules.
+%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
 %endif
 
 %description
-%{hmsg}
+Enables IPv4 and IPv6 destination address rewriting using iptables rules.
 
-The "%{name}" package provides an iptables user-space
-plugin "DADDR" target.  The plugin requires installation of a
-"kmod-%{name}" package providing a matching kernel module for
-the running kernel.
-
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} == 3
-%description -n iptables-ipv6-daddr
-Enables IPv6 destination address rewriting using iptables rules.
-
-The "iptables-ipv6-daddr" package provides an iptables user-space
-plugin "DADDR" target.  The plugin requires installation of a
-"kmod-%{name}" package providing a matching kernel module
-for the running kernel.
-%endif
+The "%{name}" package provides an iptables user-space plugin "DADDR"
+target.  The plugin requires installation of a "kmod-%{name}"
+package providing a matching kernel module for the running kernel or
+the xt_DADDR module integrated into the kernel.
 
 %prep
 %setup -q -c -T -a 0
@@ -234,11 +146,7 @@ done
 %__make -C '%{kmod_name}-%{version}/%{extensionsdir}' all
 for kvariant in %{kvariants}
 do
-%if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
-    ksrc="%{_usrsrc}/kernels/%{kverrel}${kvariant:+-$kvariant}-%{_target_cpu}"
-%else
     ksrc="%{_usrsrc}/kernels/%{kverrel}${kvariant:+.$kvariant}"
-%endif
     %__make \
 	-C "$ksrc" \
 	M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
@@ -251,11 +159,7 @@ done
 %makeinstall -C '%{kmod_name}-%{version}/%{extensionsdir}'
 for kvariant in %{kvariants}
 do
-%if 0%{?rhel_version} >= 406 && 0%{?rhel_version} <= 505
-    ksrc="%{_usrsrc}/kernels/%{kverrel}${kvariant:+-$kvariant}-%{_target_cpu}"
-%else
     ksrc="%{_usrsrc}/kernels/%{kverrel}${kvariant:+.$kvariant}"
-%endif
     kodir="%{buildroot}/lib/modules/%{kverrel}${kvariant}/extra/%{kmod_name}"
     %__make \
 	-C "$ksrc" \
@@ -273,29 +177,26 @@ done
 
 
 %pre
+%if 0%{?kvariants:1}
 %{expand:%(echo | sed -e 's@^@%{prekmodrm}@g')}
+%endif
 
 
 %preun
+%if 0%{?kvariants:1}
 %{expand:%(echo | sed -e 's@^@%{preunkmodrm}@g')}
+%endif
 
 
 %files
 %defattr(-, root, root)
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} <= 3
-/lib*/iptables/libipt_DADDR.so
-%else
 /lib*/xtables/libxt_DADDR.so
-%endif
-
-%if %{iptables_version_maj} == 1 && %{iptables_version_min} == 3
-%files -n iptables-ipv6-daddr
-%defattr(-, root, root)
-/lib*/iptables/libip6t_DADDR.so
-%endif
 
 
 %changelog
+* Wed Mar 6 2019 Quentin Barnes <qbarnes@oath.com> 0.8.0-20190306
+- Drop support for RHEL 4 and RHEL 5.
+
 * Wed Jul 11 2018 Quentin Barnes <qbarnes@oath.com> 0.8.0-20180711
 - Print appropriate leading or trailing whitespace for messages.
 
