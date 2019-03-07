@@ -1,3 +1,7 @@
+# Option for disabling generation of the kmod package.
+%define with_kmod	%{?_without_kmod:0}  %{?!_without_kmod:1}
+
+
 %if 0%{!?rhel_version:1}
   %if 0%{?dist:1}
     %if "%{dist}" == ".el6"
@@ -16,7 +20,7 @@
   %define kmod_driver_version 0.8.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20190306
+  %define kmod_rpm_release 20190307
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -28,17 +32,17 @@
 
 %define extensionsdir extensions-%{iptables_version_maj}.%{iptables_version_min}
 
-%define upvar ""
+%if %{with_kmod}
+  %define upvar ""
 
-%ifarch ppc64
-  %define kdumpvar kdump
-%endif
+  %ifarch ppc64
+    %define kdumpvar kdump
+  %endif
 
-# hint: this can he overridden with "--define kvariants foo bar" on the
-# rpmbuild command line, e.g. --define 'kvariants "" smp'
-%{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
+  # hint: this can he overridden with "--define kvariants foo bar" on the
+  # rpmbuild command line, e.g. --define 'kvariants "" smp'
+  %{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
 
-%if 0%{?kvariants:1}
   %if 0%{!?kmoddir:1}
     %define kmoddir kmod-xt
   %endif
@@ -93,7 +97,7 @@ Packager: Quentin Barnes <qbarnes@verizonmedia.com>
 %if 0%{?rhel_version:1}
 BuildRequires: iptables-devel >= 1.4.7, iptables-devel < 1.5
 Requires: iptables >= 1.4.7, iptables < 1.5
-  %if 0%{?kvariants:1}
+  %if %{with_kmod}
 Requires: %{name}-kmod = %{version}-%{release}
     %if 0%{?rhel_version} == 600
 BuildRequires: module-init-tools
@@ -118,7 +122,7 @@ Source0: %{name}-%{version}.tar.bz2
 
 Source51: kmodtool.el6
 
-%if 0%{?kvariants:1} && 0%{?kmodtool:1}
+%if %{with_kmod} && 0%{?kmodtool:1}
   # Use kmodtool to generate individual kmod subpackages directives.
   %define kmodtemplate rpmtemplate
   %define kmod_version %{version}
@@ -137,53 +141,59 @@ the xt_DADDR module integrated into the kernel.
 
 %prep
 %setup -q -c -T -a 0
-for kvariant in %{kvariants} ; do
+%if %{with_kmod}
+  for kvariant in %{kvariants} ; do
     cp -a -- '%{kmod_name}-%{version}' "_kmod_build_$kvariant"
-done
+  done
+%endif
 
 
 %build
 %__make -C '%{kmod_name}-%{version}/%{extensionsdir}' all
-for kvariant in %{kvariants}
-do
+%if %{with_kmod}
+  for kvariant in %{kvariants}
+  do
     ksrc="%{_usrsrc}/kernels/%{kverrel}${kvariant:+.$kvariant}"
     %__make \
-	-C "$ksrc" \
-	M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
-        MODVERSION='%{kmod_driver_version}'
-done
+      -C "$ksrc" \
+      M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
+      MODVERSION='%{kmod_driver_version}'
+  done
+%endif
 
 
 %install
 %__rm -rf -- '%{buildroot}'
 %makeinstall -C '%{kmod_name}-%{version}/%{extensionsdir}'
-for kvariant in %{kvariants}
-do
+%if %{with_kmod}
+  for kvariant in %{kvariants}
+  do
     ksrc="%{_usrsrc}/kernels/%{kverrel}${kvariant:+.$kvariant}"
     kodir="%{buildroot}/lib/modules/%{kverrel}${kvariant}/extra/%{kmod_name}"
     %__make \
-	-C "$ksrc" \
-	M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
-        MODVERSION='%{kmod_driver_version}'
-	# Need to make sure execute bits are set due to case #00603038.
-	install -m 755 -D \
-            "_kmod_build_${kvariant}/%{kmoddir}/%{pkgko}.ko" \
-            "$kodir/%{pkgko}.ko"
-done
+      -C "$ksrc" \
+      M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
+      MODVERSION='%{kmod_driver_version}'
+      # Need to make sure execute bits are set due to case #00603038.
+      install -m 755 -D \
+        "_kmod_build_${kvariant}/%{kmoddir}/%{pkgko}.ko" \
+        "$kodir/%{pkgko}.ko"
+  done
+%endif
 
 
 %clean
 %__rm -rf -- '%{buildroot}'
 
 
+%if %{with_kmod}
 %pre
-%if 0%{?kvariants:1}
 %{expand:%(echo | sed -e 's@^@%{prekmodrm}@g')}
 %endif
 
 
+%if %{with_kmod}
 %preun
-%if 0%{?kvariants:1}
 %{expand:%(echo | sed -e 's@^@%{preunkmodrm}@g')}
 %endif
 
@@ -194,6 +204,9 @@ done
 
 
 %changelog
+* Thu Mar 7 2019 Quentin Barnes <qbarnes@oath.com> 0.8.0-20190307
+- Add "--without kmod" option to prevent generation of the kmod package.
+
 * Wed Mar 6 2019 Quentin Barnes <qbarnes@oath.com> 0.8.0-20190306
 - Drop support for RHEL 4 and RHEL 5.
 
