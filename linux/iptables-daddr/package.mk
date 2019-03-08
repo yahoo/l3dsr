@@ -1,5 +1,5 @@
 package = iptables-daddr
-version = 0.10.1
+version = 0.10.2
 
 pkg_vers       = $(package)-$(version)
 srctardestdir  = $(pkg_vers)
