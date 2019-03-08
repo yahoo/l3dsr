@@ -1,7 +1,8 @@
 /* This module sets the IP destination address field. */
 
 /* Copyright (C) 2011, 2012, 2014 Yahoo! Inc.
- *    Written by: Quentin Barnes <qbarnes@yahoo-inc.com>
+ * Copyright (C) 2019 Oath Inc.
+ *    Written by: Quentin Barnes <qbarnes@verizonmedia.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,13 +22,17 @@
 #include <linux/netfilter/x_tables.h>
 #include "xt_DADDR.h"
 
-MODULE_AUTHOR("Yahoo! Inc.  <linux-kernel-team@yahoo-inc.com>");
+MODULE_AUTHOR("Oath Inc.  <linux-kernel-team@verizonmedia.com>");
 MODULE_DESCRIPTION("Xtables: destination address modification");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_DADDR");
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 MODULE_ALIAS("ip6t_DADDR");
 #endif
+
+static char *table = "raw";
+module_param(table, charp, S_IRUGO);
+MODULE_PARM_DESC(table, "type of table (default: raw)");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
 #define xt_action_param xt_target_param
@@ -159,7 +164,7 @@ static struct xt_target daddr_tg_reg[] __read_mostly = {
 	{
 		.name		= "DADDR",
 		.family		= NFPROTO_IPV4,
-		.table		= "mangle",
+		.table		= NULL,
 		.target		= daddr_tg4,
 		.targetsize	= sizeof(struct xt_daddr_tginfo),
 		.me		= THIS_MODULE,
@@ -168,7 +173,7 @@ static struct xt_target daddr_tg_reg[] __read_mostly = {
 	{
 		.name		= "DADDR",
 		.family		= NFPROTO_IPV6,
-		.table		= "mangle",
+		.table		= NULL,
 		.target		= daddr_tg6,
 		.targetsize	= sizeof(struct xt_daddr_tginfo),
 		.me		= THIS_MODULE,
@@ -178,6 +183,10 @@ static struct xt_target daddr_tg_reg[] __read_mostly = {
 
 static int __init daddr_tg_init(void)
 {
+	daddr_tg_reg[0].table = table;
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
+	daddr_tg_reg[1].table = table;
+#endif
 	return xt_register_targets(daddr_tg_reg, ARRAY_SIZE(daddr_tg_reg));
 }
 

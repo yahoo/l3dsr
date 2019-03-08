@@ -18,11 +18,22 @@ On each server, create lookback interfaces corresponding to the VIPs
 and iptables rules to set the return address on the packets:
 # ifconfig lo:1 72.30.38.140 netmask 255.255.255.255
 # ifconfig lo:2 98.139.183.24 netmask 255.255.255.255
-# iptables -t mangle -A INPUT -m dscp --dscp 1 -j DADDR --set-daddr=72.30.38.140
-# iptables -t mangle -A INPUT -m dscp --dscp 2 -j DADDR --set-daddr=98.139.183.24
+# iptables -t raw -A INPUT -m dscp --dscp 1 -j DADDR --set-daddr=72.30.38.140
+# iptables -t raw -A INPUT -m dscp --dscp 2 -j DADDR --set-daddr=98.139.183.24
 
 An example for IPv6:
 # ifconfig lo:3 add fc00:1000:0:6::10/128
 # ifconfig lo:4 add fc00:1000:0:6::21/128
-# ip6tables -t mangle -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
-# ip6tables -t mangle -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21
+# ip6tables -t raw -A INPUT -m dscp --dscp 10 -j DADDR --set-daddr=fc00:1000:0:6::10
+# ip6tables -t raw -A INPUT -m dscp --dscp 11 -j DADDR --set-daddr=fc00:1000:0:6::21
+
+As of 0.9.0, the default table was switched from "mangle" to "raw".
+If the old behavior is still desired, the xt_DADDR kernel module can
+be manually loaded with the option "table=mangle" or by creating a
+file /etc/modprobe.d/xt_DADDR.conf with the single line:
+options xt_DADDR table=mangle
+
+If you find it necessary to switch the table back to "mangle" please
+contact Quentin Barnes <qbarnes@verizonmedia.com> with your use case.
+Before attempting to push the code upstream, we want to learn of any
+cases at all where "raw" does not fully work.
