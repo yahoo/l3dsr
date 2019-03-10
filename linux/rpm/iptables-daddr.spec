@@ -20,7 +20,7 @@
   %define kmod_driver_version 0.9.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20190307
+  %define kmod_rpm_release 20190308
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -118,7 +118,7 @@ BuildRequires: %{kmodtool}
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-Source0: %{name}-%{version}.tar.bz2
+Source0: %{name}-%{version}.tar.xz
 
 Source51: kmodtool.el6
 
@@ -206,6 +206,7 @@ the xt_DADDR module integrated into the kernel.
 %changelog
 * Fri Mar 8 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190308
 - Add table parameter to module.  Change default from mangle to raw.
+- Switch tar file format from .bz2 to .xz.
 
 * Thu Mar 7 2019 Quentin Barnes <qbarnes@oath.com> 0.8.0-20190307
 - Add "--without kmod" option to prevent generation of the kmod package.

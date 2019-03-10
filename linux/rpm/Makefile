@@ -63,11 +63,11 @@ $(tardir)/$(zsrctarfile):
 	$(MAKE) -C '$(@D)' '$(@F)'
 
 $(rpmtarfile): $(tardir)/$(zsrctarfile) $(extrasrcfiles) $(specfile)
-	bzip2 -cdk '$<' > '$@'
+	xz -cdk '$<' > '$@'
 	tar -rf '$@' $(extrasrcfiles) '$(specfile)'
 
 $(zrpmtarfile): $(rpmtarfile)
-	bzip2 -czk '$<' > '$@'
+	xz -czk '$<' > '$@'
 
 $(srpm): $(zrpmtarfile)
 	rpmbuild -ts --target=noarch $(rpmbuild_args) '$<'

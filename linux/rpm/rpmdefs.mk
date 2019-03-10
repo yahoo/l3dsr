@@ -24,7 +24,7 @@ extrasrcfiles = \
 	kmodtool.el6
 
 rpmtarfile  = $(srctarfile)
-zrpmtarfile = $(rpmtarfile).bz2
+zrpmtarfile = $(rpmtarfile).xz
 
 build_defs = \
 	     $(if $(dist),--define 'dist $(dist)') \
