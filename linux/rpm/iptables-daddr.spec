@@ -2,17 +2,6 @@
 %define with_kmod	%{?_without_kmod:0}  %{?!_without_kmod:1}
 
 
-%if 0%{!?rhel_version:1}
-  %if 0%{?dist:1}
-    %if "%{dist}" == ".el6"
-      %define rhel_version 600
-    %endif
-    %if "%{dist}" == ".el7"
-      %define rhel_version 700
-    %endif
-  %endif
-%endif
-
 %if 0%{!?kmod_name:1}
   %define kmod_name iptables-daddr
 %endif
@@ -48,7 +37,7 @@
   %endif
 
   %if 0%{!?kmodtool:1}
-    %if 0%{?rhel_version} == 600
+    %if 0%{?rhel} == 6
       # Really only necessary for <= RHEL 6.3.
       %define kmodtool sh %{_sourcedir}/kmodtool.el6
     %else
@@ -94,12 +83,12 @@ URL: %{url}
 Vendor: Oath Inc.
 Packager: Quentin Barnes <qbarnes@verizonmedia.com>
 
-%if 0%{?rhel_version:1}
+%if 0%{?rhel:1}
 BuildRequires: iptables-devel >= 1.4.7, iptables-devel < 1.5
 Requires: iptables >= 1.4.7, iptables < 1.5
   %if %{with_kmod}
 Requires: %{name}-kmod = %{version}-%{release}
-    %if 0%{?rhel_version} == 600
+    %if 0%{?rhel} == 6
 BuildRequires: module-init-tools
     %else
 BuildRequires: kmod
@@ -123,12 +112,8 @@ Source0: %{name}-%{version}.tar.xz
 Source51: kmodtool.el6
 
 %if %{with_kmod} && 0%{?kmodtool:1}
-  # Use kmodtool to generate individual kmod subpackages directives.
-  %define kmodtemplate rpmtemplate
-  %define kmod_version %{version}
-  %define kmod_release %{release}
-
-%{expand:%(%{kmodtool} %{kmodtemplate} %{kmod_name} %{kverrel} %{kvariants} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
+# Use kmodtool to generate individual kmod subpackages directives.
+%{expand:%(%{kmodtool} rpmtemplate %{kmod_name} %{kverrel} %{kvariants} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
 %endif
 
 %description
