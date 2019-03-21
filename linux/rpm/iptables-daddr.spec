@@ -9,7 +9,7 @@
   %define kmod_driver_version 0.9.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20190308
+  %define kmod_rpm_release 20190321
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -46,14 +46,7 @@
     %endif
   %endif
 
-  # Create a preinstall and preuninstall scripts as a macro for processing
-  # with sed that ensures any existing xt_DADDR module, if present, can
-  # be removed.  If not, fail.
   %define pkgko xt_DADDR
-  %define kmodrm rmmod '%{pkgko}' 2> /dev/null || true;if %__grep -qw '^%{pkgko}' /proc/modules;then echo -e >\\&2 "WARNING: Unable to remove current %{pkgko} module!\\\\nRemove iptables rules using DADDR and try again.";exit 1;fi
-  %define prekmodrm if [ "$1" -eq 1 ];then %{kmodrm};fi
-  %define preunkmodrm if [ "$1" -eq 0 ];then %{kmodrm};fi
-
   %if 0%{?kmodtool:1}
     %if 0%{?kmod_kernel_version:1}
       %{expand: %%define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version}.%{_target_cpu} 2>/dev/null)}
@@ -113,7 +106,7 @@ Source51: kmodtool.el6
 
 %if %{with_kmod} && 0%{?kmodtool:1}
 # Use kmodtool to generate individual kmod subpackages directives.
-%{expand:%(%{kmodtool} rpmtemplate %{kmod_name} %{kverrel} %{kvariants} 2>/dev/null | sed -e 's@^\(%%preun \)\(.*\)$@%%pre \2\n%{prekmodrm}\n\n\1\2\n%{preunkmodrm}\n@g')}
+%{expand:%(%{kmodtool} rpmtemplate %{kmod_name} %{kverrel} %{kvariants} 2>/dev/null)}
 %endif
 
 %description
@@ -171,32 +164,23 @@ the xt_DADDR module integrated into the kernel.
 %__rm -rf -- '%{buildroot}'
 
 
-%if %{with_kmod}
-%pre
-%{expand:%(echo | sed -e 's@^@%{prekmodrm}@g')}
-%endif
-
-
-%if %{with_kmod}
-%preun
-%{expand:%(echo | sed -e 's@^@%{preunkmodrm}@g')}
-%endif
-
-
 %files
 %defattr(-, root, root)
 /lib*/xtables/libxt_DADDR.so
 
 
 %changelog
-* Fri Mar 8 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190308
+* Thu Mar 21 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190321
+- Remove pre and preun checks for kernel module being unused.
+
+* Fri Mar 08 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190308
 - Add table parameter to module.  Change default from mangle to raw.
 - Switch tar file format from .bz2 to .xz.
 
-* Thu Mar 7 2019 Quentin Barnes <qbarnes@oath.com> 0.8.0-20190307
+* Thu Mar 07 2019 Quentin Barnes <qbarnes@oath.com> 0.8.0-20190307
 - Add "--without kmod" option to prevent generation of the kmod package.
 
-* Wed Mar 6 2019 Quentin Barnes <qbarnes@oath.com> 0.8.0-20190306
+* Wed Mar 06 2019 Quentin Barnes <qbarnes@oath.com> 0.8.0-20190306
 - Drop support for RHEL 4 and RHEL 5.
 
 * Wed Jul 11 2018 Quentin Barnes <qbarnes@oath.com> 0.8.0-20180711
