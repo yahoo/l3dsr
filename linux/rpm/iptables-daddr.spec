@@ -37,7 +37,7 @@
   %endif
 
   %if 0%{!?kmodtool:1}
-    %if 0%{?rhel} == 6
+    %if 0%{?rhel} < 7
       # Really only necessary for <= RHEL 6.3.
       %define kmodtool sh %{_sourcedir}/kmodtool.el6
     %else
@@ -53,11 +53,6 @@
     %else
       %{expand: %%define kverrel %(%{kmodtool} verrel 2>/dev/null)}
     %endif
-    # Remove the architecture from kverrel.
-    %define kvr %{lua:\
-    local kvra = rpm.expand("%{kverrel}")
-    local kvr = string.gsub(kvra,".[^.]+$","")
-    print(kvr)}
   %endif
 %endif
 
@@ -77,21 +72,17 @@ Vendor: Oath Inc.
 Packager: Quentin Barnes <qbarnes@verizonmedia.com>
 
 %if 0%{?rhel:1}
-BuildRequires: iptables-devel >= 1.4.7, iptables-devel < 1.5
-Requires: iptables >= 1.4.7, iptables < 1.5
+BuildRequires: iptables-devel >= 1.4.7, iptables-devel < 1.9
+Requires: iptables >= 1.4.7, iptables < 1.9
   %if %{with_kmod}
 Requires: %{name}-kmod = %{version}-%{release}
-    %if 0%{?rhel} == 6
+    %if 0%{?rhel} < 7
 BuildRequires: module-init-tools
     %else
 BuildRequires: kmod
     %endif
-    %if 0%{?kvr:1}
-BuildRequires: kernel-devel%{?_isa} = %{kvr}
-# Fix this is a later build.
-#BuildRequires: kernel-abi-whitelists = %{kvr}
 BuildRequires: kernel-abi-whitelists
-    %endif
+BuildRequires: kernel-devel
   %endif
 %endif
 %if 0%{?kmodtooldep:1}
@@ -172,6 +163,7 @@ the xt_DADDR module integrated into the kernel.
 %changelog
 * Thu Mar 21 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190321
 - Remove pre and preun checks for kernel module being unused.
+- Add RHEL 8 support.
 
 * Fri Mar 08 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190308
 - Add table parameter to module.  Change default from mangle to raw.
