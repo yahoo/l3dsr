@@ -4,7 +4,7 @@
 # Rarely set optional macros used by spec file:
 #   PACKAGE		name of package
 #   RELEASE		release of package
-#   BUILD_NUMBER	build number of package
+#   BUILD_ID		build id, appended to release
 #   OSMACRO		see below
 #   OSMACROVER		see below
 #   KVARIANTS		kernel variants to build (e.g. xen)
@@ -31,7 +31,7 @@ build_defs = \
 	     $(if $(PACKAGE),--define 'kmod_name $(PACKAGE)') \
 	     $(if $(VERSION),--define 'kmod_driver_version $(VERSION)') \
 	     $(if $(RELEASE),--define 'kmod_rpm_release $(RELEASE)') \
-	     $(if $(BUILD_NUMBER),--define 'build_number $(BUILD_NUMBER)') \
+	     $(if $(BUILD_ID),--define 'build_id $(BUILD_ID)') \
 	     $(if $(OSMACRO),--define '$(OSMACRO) $(OSMACROVER)') \
 	     $(if $(KVARIANTS),--define 'kvariants $(subst ",\",$(KVARIANTS))') \
 	     $(if $(KVERREL),--define 'kmod_kernel_version $(KVERREL)') \

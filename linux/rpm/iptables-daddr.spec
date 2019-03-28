@@ -62,7 +62,7 @@
 Summary: Iptables destination address rewriting for IPv4 and IPv6
 Name: %{kmod_name}
 Version: %{kmod_driver_version}
-Release: %{kmod_rpm_release}%{?build_number:.%{build_number}}%{?dist}
+Release: %{kmod_rpm_release}%{?build_id:.%{build_id}}%{?dist}
 License: GPLv2
 Group: Applications/System
 %if 0%{?url:1}
@@ -164,6 +164,7 @@ the xt_DADDR module integrated into the kernel.
 * Thu Mar 21 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190321
 - Remove pre and preun checks for kernel module being unused.
 - Add RHEL 8 support.
+- Convert from build_number to build_id macro.
 
 * Fri Mar 08 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190308
 - Add table parameter to module.  Change default from mangle to raw.
