@@ -9,7 +9,7 @@
   %define kmod_driver_version 0.9.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20190321
+  %define kmod_rpm_release 20190719
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -31,6 +31,11 @@
   # hint: this can he overridden with "--define kvariants foo bar" on the
   # rpmbuild command line, e.g. --define 'kvariants "" smp'
   %{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
+
+  # Use kmodtool to generate individual kmod subpackages directives
+  %define kmodtemplate rpmtemplate
+  %define kmod_version %{version}
+  %define kmod_release %{release}
 
   %if 0%{!?kmoddir:1}
     %define kmoddir kmod-xt
@@ -161,6 +166,9 @@ the xt_DADDR module integrated into the kernel.
 
 
 %changelog
+* Fri Jul 19 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.9.0-20190719
+- Correct kmodtool macro error that fails package remove.
+
 * Thu Mar 21 2019 Quentin Barnes <qbarnes@oath.com> 0.9.0-20190321
 - Remove pre and preun checks for kernel module being unused.
 - Add RHEL 8 support.
