@@ -6,10 +6,10 @@
   %define kmod_name iptables-daddr
 %endif
 %if 0%{!?kmod_driver_version:1}
-  %define kmod_driver_version 0.9.0
+  %define kmod_driver_version 0.9.1
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20190719
+  %define kmod_rpm_release 20190801
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -166,6 +166,9 @@ the xt_DADDR module integrated into the kernel.
 
 
 %changelog
+* Thu Aug 01 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.9.1-20190801
+- Fix "hw csum failure" when NIC drivers send up CHECKSUM_COMPLETE packets.
+
 * Fri Jul 19 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.9.0-20190719
 - Correct kmodtool macro error that fails package remove.
 
