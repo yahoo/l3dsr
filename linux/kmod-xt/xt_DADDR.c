@@ -47,7 +47,8 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 			return NF_DROP;
 
 		iph = ip_hdr(skb);
-		csum_replace4(&iph->check, iph->daddr, new_daddr);
+		inet_proto_csum_replace4(&iph->check, skb,
+					  iph->daddr, new_daddr, 1);
 
 		proto = iph->protocol;
 
@@ -76,7 +77,8 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 				checkp = &udph->check;
 			}
 
-			csum_replace4(checkp, iph->daddr, new_daddr);
+			inet_proto_csum_replace4(checkp, skb,
+						 iph->daddr, new_daddr, 0);
 		}
 
 		iph->daddr = new_daddr;
