@@ -61,6 +61,7 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 	if (!skb_make_writable(skb, skb->len))
 #endif
 		return NF_DROP;
+
 	iph        = ip_hdr(skb);
 	old_daddr  = iph->daddr;
 	iph->daddr = new_daddr;
@@ -82,7 +83,6 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 		if (*checkp || skb->ip_summed == CHECKSUM_PARTIAL) {
 			inet_proto_csum_replace4(checkp, skb,
 						 old_daddr, new_daddr, 1);
-
 			if (*checkp == 0)
 				*checkp = CSUM_MANGLED_0;
 		}
@@ -97,6 +97,8 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 					 old_daddr, new_daddr, 1);
 		break;
 	}
+
+	iph->daddr = new_daddr;
 
 	return XT_CONTINUE;
 }
