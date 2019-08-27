@@ -38,9 +38,9 @@ MODULE_ALIAS("ip6t_DADDR");
 #define XT_DADDR_NEED_INET_PROTO_CSUM_REPLACE16
 #endif
 
-static char *table = "raw";
+static char *table = "mangle";
 module_param(table, charp, S_IRUGO);
-MODULE_PARM_DESC(table, "type of table (default: raw)");
+MODULE_PARM_DESC(table, "type of table (default: mangle)");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
 #define xt_action_param xt_target_param
@@ -54,6 +54,7 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 	__be32 old_daddr;
 	struct iphdr *iph;
 	int transport_len;
+
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)
 	if (skb_ensure_writable(skb, skb->len))
