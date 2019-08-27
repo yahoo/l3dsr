@@ -44,55 +44,52 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 	const struct xt_daddr_tginfo *daddrinfo = par->targinfo;
 	__be32 new_daddr = daddrinfo->daddr.in.s_addr;
 	struct iphdr *iph = ip_hdr(skb);
+	__u8	proto;
 
-	if (iph->daddr != new_daddr) {
-		__u8	proto;
+	if (!skb_make_writable(skb, skb->len))
+		return NF_DROP;
 
-		if (!skb_make_writable(skb, skb->len))
-			return NF_DROP;
+	iph = ip_hdr(skb);
+	inet_proto_csum_replace4(&iph->check, skb,
+				  iph->daddr, new_daddr, 0);
 
-		iph = ip_hdr(skb);
-		inet_proto_csum_replace4(&iph->check, skb,
-					  iph->daddr, new_daddr, 0);
+	proto = iph->protocol;
 
-		proto = iph->protocol;
+	if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
+		int	hdroff = (int)ip_hdrlen(skb);
+		int	len = skb->len - hdroff;
 
-		if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
-			int	hdroff = (int)ip_hdrlen(skb);
-			int	len = skb->len - hdroff;
+		if (proto == IPPROTO_TCP) {
+			struct tcphdr *tcph;
 
-			if (proto == IPPROTO_TCP) {
-				struct tcphdr *tcph;
+			if (len < (int)sizeof(struct tcphdr))
+				return NF_DROP;
 
-				if (len < (int)sizeof(struct tcphdr))
-					return NF_DROP;
+			tcph = (struct tcphdr *)
+				(skb_network_header(skb) + hdroff);
 
-				tcph = (struct tcphdr *)
-					(skb_network_header(skb) + hdroff);
+			inet_proto_csum_replace4(&tcph->check, skb,
+					 iph->daddr, new_daddr, 1);
+		} else {
+			struct udphdr *udph;
+			__sum16	*checkp;
 
-				inet_proto_csum_replace4(&tcph->check, skb,
-						 iph->daddr, new_daddr, 1);
-			} else {
-				struct udphdr *udph;
-				__sum16	*checkp;
+			if (len < (int)sizeof(struct udphdr))
+				return NF_DROP;
 
-				if (len < (int)sizeof(struct udphdr))
-					return NF_DROP;
+			udph = (struct udphdr *)
+				(skb_network_header(skb) + hdroff);
+			checkp = &udph->check;
 
-				udph = (struct udphdr *)
-					(skb_network_header(skb) + hdroff);
-				checkp = &udph->check;
+			inet_proto_csum_replace4(checkp, skb,
+					 iph->daddr, new_daddr, 1);
 
-				inet_proto_csum_replace4(checkp, skb,
-						 iph->daddr, new_daddr, 1);
-
-				if (*checkp == 0)
-					*checkp = CSUM_MANGLED_0;
-			}
+			if (*checkp == 0)
+				*checkp = CSUM_MANGLED_0;
 		}
-
-		iph->daddr = new_daddr;
 	}
+
+	iph->daddr = new_daddr;
 
 	return XT_CONTINUE;
 }
