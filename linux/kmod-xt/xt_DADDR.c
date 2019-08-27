@@ -60,7 +60,6 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 		if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
 			int	hdroff = (int)ip_hdrlen(skb);
 			int	len = skb->len - hdroff;
-			__sum16	*checkp;
 
 			if (proto == IPPROTO_TCP) {
 				struct tcphdr *tcph;
@@ -70,9 +69,12 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 
 				tcph = (struct tcphdr *)
 					(skb_network_header(skb) + hdroff);
-				checkp = &tcph->check;
+
+				inet_proto_csum_replace4(&tcph->check, skb,
+						 iph->daddr, new_daddr, 1);
 			} else {
 				struct udphdr *udph;
+				__sum16	*checkp;
 
 				if (len < (int)sizeof(struct udphdr))
 					return NF_DROP;
@@ -80,10 +82,13 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 				udph = (struct udphdr *)
 					(skb_network_header(skb) + hdroff);
 				checkp = &udph->check;
-			}
 
-			inet_proto_csum_replace4(checkp, skb,
+				inet_proto_csum_replace4(checkp, skb,
 						 iph->daddr, new_daddr, 1);
+
+				if (*checkp == 0)
+					*checkp = CSUM_MANGLED_0;
+			}
 		}
 
 		iph->daddr = new_daddr;
