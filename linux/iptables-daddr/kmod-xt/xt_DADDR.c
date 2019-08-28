@@ -1,7 +1,7 @@
 /* This module sets the IP destination address field. */
 
 /* Copyright (C) 2011, 2012, 2014 Yahoo! Inc.
- * Copyright (C) 2019, 2020 Verizon Media, Inc.
+ * Copyright (C) 2019, 2020, 2021 Verizon Media, Inc.
  *    Written by: Quentin Barnes <qbarnes@verizonmedia.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -83,6 +83,7 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 		if (*checkp || skb->ip_summed == CHECKSUM_PARTIAL) {
 			inet_proto_csum_replace4(checkp, skb,
 						 old_daddr, new_daddr, 1);
+
 			if (*checkp == 0)
 				*checkp = CSUM_MANGLED_0;
 		}
@@ -97,8 +98,6 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 					 old_daddr, new_daddr, 1);
 		break;
 	}
-
-	iph->daddr = new_daddr;
 
 	return XT_CONTINUE;
 }
