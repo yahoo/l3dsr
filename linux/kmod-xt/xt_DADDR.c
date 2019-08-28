@@ -1,7 +1,7 @@
 /* This module sets the IP destination address field. */
 
 /* Copyright (C) 2011, 2012, 2014 Yahoo! Inc.
- * Copyright (C) 2019 Oath Inc.
+ * Copyright (C) 2019 Verizon Media, Inc.
  *    Written by: Quentin Barnes <qbarnes@verizonmedia.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -43,120 +43,155 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct xt_daddr_tginfo *daddrinfo = par->targinfo;
 	__be32 new_daddr = daddrinfo->daddr.in.s_addr;
-	struct iphdr *iph = ip_hdr(skb);
-	__u8	proto;
+	__be32 old_daddr;
+	struct iphdr *iph;
+	int transport_len;
 
 	if (!skb_make_writable(skb, skb->len))
 		return NF_DROP;
 
-	iph = ip_hdr(skb);
-	inet_proto_csum_replace4(&iph->check, skb,
-				  iph->daddr, new_daddr, 0);
+	iph        = ip_hdr(skb);
+	old_daddr  = iph->daddr;
+	iph->daddr = new_daddr;
+	csum_replace4(&iph->check, old_daddr, new_daddr);
 
-	proto = iph->protocol;
+	transport_len = skb->len - skb_transport_offset(skb);
 
-	if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
-		int	hdroff = (int)ip_hdrlen(skb);
-		int	len = skb->len - hdroff;
+	switch (iph->protocol) {
+	case IPPROTO_UDP: {
+		struct udphdr	*udph;
+		__sum16		*checkp;
 
-		if (proto == IPPROTO_TCP) {
-			struct tcphdr *tcph;
+		if (unlikely(transport_len < (int)sizeof(struct udphdr)))
+			return NF_DROP;
 
-			if (len < (int)sizeof(struct tcphdr))
-				return NF_DROP;
+		udph = udp_hdr(skb);
+		checkp = &udph->check;
 
-			tcph = (struct tcphdr *)
-				(skb_network_header(skb) + hdroff);
-
-			inet_proto_csum_replace4(&tcph->check, skb,
-					 iph->daddr, new_daddr, 1);
-		} else {
-			struct udphdr *udph;
-			__sum16	*checkp;
-
-			if (len < (int)sizeof(struct udphdr))
-				return NF_DROP;
-
-			udph = (struct udphdr *)
-				(skb_network_header(skb) + hdroff);
-			checkp = &udph->check;
-
+		if (*checkp || skb->ip_summed == CHECKSUM_PARTIAL) {
 			inet_proto_csum_replace4(checkp, skb,
-					 iph->daddr, new_daddr, 1);
+						 old_daddr, new_daddr, 1);
 
 			if (*checkp == 0)
 				*checkp = CSUM_MANGLED_0;
 		}
+		break;
 	}
 
-	iph->daddr = new_daddr;
+	case IPPROTO_TCP:
+		if (unlikely(transport_len < (int)sizeof(struct tcphdr)))
+			return NF_DROP;
+
+		inet_proto_csum_replace4(&tcp_hdr(skb)->check, skb,
+					 old_daddr, new_daddr, 1);
+		break;
+	}
 
 	return XT_CONTINUE;
 }
 
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
+#if !((LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)) || \
+      (defined(RHEL_RELEASE_CODE) && defined(RHEL_RELEASE_VERSION) && \
+       (RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(6,5))))
+static
+void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
+			       const __be32 *from, const __be32 *to,
+			       bool pseudohdr)
+{
+	__be32 diff[] = {
+		~from[0], ~from[1], ~from[2], ~from[3],
+		to[0], to[1], to[2], to[3],
+	};
+	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+		*sum = csum_fold(csum_partial(diff, sizeof(diff),
+				 ~csum_unfold(*sum)));
+		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
+			skb->csum = ~csum_partial(diff, sizeof(diff),
+						  ~skb->csum);
+	} else if (pseudohdr)
+		*sum = ~csum_fold(csum_partial(diff, sizeof(diff),
+				  csum_unfold(*sum)));
+}
+#endif
+
 static unsigned int
 daddr_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct xt_daddr_tginfo *daddrinfo = par->targinfo;
 	const struct in6_addr *new_daddr6 = &daddrinfo->daddr.in6;
-	struct ipv6hdr *ip6h = ipv6_hdr(skb);
+	struct in6_addr old_daddr6;
+	struct ipv6hdr *ip6h;
+	int transport_len;
+	__u8	proto;
+	int	hdroff;
 
-	if (!ipv6_addr_equal(&ip6h->daddr, new_daddr6)) {
-		__u8	proto;
-		int	hdroff;
+	if (!skb_make_writable(skb, skb->len))
+		return NF_DROP;
 
-		if (!skb_make_writable(skb, skb->len))
-			return NF_DROP;
-
-		ip6h = ipv6_hdr(skb);
-
-		proto = ip6h->nexthdr;
+	ip6h        = ipv6_hdr(skb);
+	old_daddr6  = ip6h->daddr;
+	ip6h->daddr = *new_daddr6;
+	proto       = ip6h->nexthdr;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
-		{
-		__be16	frag_off;
-		hdroff = ipv6_skip_exthdr(skb, (u8*)(ip6h+1) - skb->data,
-					  &proto, &frag_off);
-		}
+	{
+	__be16	frag_off;
+	hdroff = ipv6_skip_exthdr(skb, (u8*)(ip6h+1) - skb->data,
+				  &proto, &frag_off);
+	}
 #else
-		hdroff = ipv6_skip_exthdr(skb, (u8*)(ip6h+1) - skb->data,
-					  &proto);
+	hdroff = ipv6_skip_exthdr(skb, (u8*)(ip6h+1) - skb->data,
+				  &proto);
 #endif
+	if (unlikely(hdroff < 0))
+		return NF_DROP;
 
-		if ((proto == IPPROTO_TCP) || (proto == IPPROTO_UDP)) {
-			int	len = skb->len - hdroff;
-			__u16	*checkp;
-			int	i;
+	if (unlikely(hdroff == 0))
+		return XT_CONTINUE;
 
-			if (proto == IPPROTO_TCP) {
-				struct tcphdr	*tcph;
+	transport_len = skb->len - skb_transport_offset(skb);
 
-				if (len < (int)sizeof(struct tcphdr))
-					return NF_DROP;
+	switch (proto) {
+	case IPPROTO_ICMPV6:
+		if (unlikely(transport_len < (int)sizeof(struct icmp6hdr)))
+			return NF_DROP;
 
-				tcph = (struct tcphdr *)
-					(skb_network_header(skb) + hdroff);
-				checkp = &tcph->check;
-			} else {
-				struct udphdr	*udph;
+		inet_proto_csum_replace16(&icmp6_hdr(skb)->icmp6_cksum, skb,
+					  old_daddr6.s6_addr32,
+					  new_daddr6->s6_addr32, 1);
+		break;
 
-				if (len < (int)sizeof(struct udphdr))
-					return NF_DROP;
+	case IPPROTO_UDP: {
+		struct udphdr	*udph;
+		__u16		*checkp;
 
-				udph = (struct udphdr *)
-					(skb_network_header(skb) + hdroff);
-				checkp = &udph->check;
-			}
+		if (unlikely(transport_len < (int)sizeof(struct udphdr)))
+			return NF_DROP;
 
-			for (i = 0; i < ARRAY_SIZE(new_daddr6->s6_addr32); i++)
-				csum_replace4(checkp,
-					      ip6h->daddr.s6_addr32[i],
-					      new_daddr6->s6_addr32[i]);
+		udph = udp_hdr(skb);
+		checkp = &udph->check;
+
+		if (*checkp || skb->ip_summed == CHECKSUM_PARTIAL) {
+			inet_proto_csum_replace16(checkp, skb,
+						  old_daddr6.s6_addr32,
+						  new_daddr6->s6_addr32, 1);
+
+			if (*checkp == 0)
+				*checkp = CSUM_MANGLED_0;
 		}
+		break;
+	}
 
-		ip6h->daddr = *new_daddr6;
+	case IPPROTO_TCP:
+		if (unlikely(transport_len < (int)sizeof(struct tcphdr)))
+			return NF_DROP;
+
+		inet_proto_csum_replace16(&tcp_hdr(skb)->check, skb,
+					  old_daddr6.s6_addr32,
+					  new_daddr6->s6_addr32, 1);
+		break;
 	}
 
 	return XT_CONTINUE;
