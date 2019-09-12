@@ -6,10 +6,10 @@
   %define kmod_name iptables-daddr
 %endif
 %if 0%{!?kmod_driver_version:1}
-  %define kmod_driver_version 0.9.1
+  %define kmod_driver_version 0.10.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20190801
+  %define kmod_rpm_release 20190912
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -166,6 +166,14 @@ the xt_DADDR module integrated into the kernel.
 
 
 %changelog
+* Thu Sep 12 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.0-20190912
+- Fix "hw csum failure" for ICMP packets when in CHECKSUM_COMPLETE mode.
+- Fix UDP checksum value when recomputed checksum is 0.
+- Add check to skip UDP checksum recomputation when checksum is ignored.
+- Check for and handle IPv6 packets without transport payload or corrupt.
+- Handle checksum recomputation for IPPROTO_ICMPV6 packets.
+- Add copy of inet_proto_csum_replace16() for kernels without the function.
+
 * Thu Aug 01 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.9.1-20190801
 - Fix "hw csum failure" when NIC drivers send up CHECKSUM_COMPLETE packets.
 
