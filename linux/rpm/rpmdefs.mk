@@ -9,7 +9,9 @@
 #   OSMACROVER		see below
 #   KVARIANTS		kernel variants to build (e.g. xen)
 #   KVERREL		kernel version and release (e.g. 3.10.0-123.el7)
-#   KMODTOOL_LIST	list of kmodtool.* scripts to include
+#   WITHOUT_KMOD	build without kmod package
+#   WITH_MANGLE		build kmod package to default to mangle table
+#   WITH_OVERRIDE	build kmod package without override file
 #   URL			URL included in package's information
 #   EXTRA_BUILD_DEFS	additional build defs
 #
@@ -21,7 +23,7 @@
 specfile   = $(package).spec
 
 extrasrcfiles = \
-	kmodtool.el6
+	$(package).files
 
 rpmtarfile  = $(srctarfile)
 zrpmtarfile = $(rpmtarfile).xz
@@ -35,6 +37,8 @@ build_defs = \
 	     $(if $(OSMACRO),--define '$(OSMACRO) $(OSMACROVER)') \
 	     $(if $(KVARIANTS),--define 'kvariants $(subst ",\",$(KVARIANTS))') \
 	     $(if $(KVERREL),--define 'kmod_kernel_version $(KVERREL)') \
-	     $(if $(KMODTOOL_LIST),--define 'kmodtool_list $(KMODTOOL_LIST)') \
+	     $(if $(WITHOUT_KMOD),--define '_without_kmod 1') \
+	     $(if $(WITH_MANGLE),--define '_with_mangle 1') \
+	     $(if $(WITH_OVERRIDE),--define '_with_override 1') \
 	     $(if $(URL),--define 'url $(URL)') \
 	     $(EXTRA_BUILD_DEFS)

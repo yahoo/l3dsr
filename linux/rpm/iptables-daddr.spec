@@ -1,5 +1,10 @@
-# Option for disabling generation of the kmod package.
+# Options --
+#   with_kmod:     Disable generation of the kmod package
+#   with_mangle:   Set table from default of raw to mangle
+#   with_override: Enable kmod override rule
 %define with_kmod	%{?_without_kmod:0}  %{?!_without_kmod:1}
+%define with_mangle	%{?_with_mangle:1}   %{?!_with_mangle:0}
+%define with_override	%{?_with_override:1} %{?!_with_override:0}
 
 
 %if 0%{!?kmod_name:1}
@@ -22,43 +27,8 @@
 %define extensionsdir extensions-%{iptables_version_maj}.%{iptables_version_min}
 
 %if %{with_kmod}
-  %define upvar ""
-
-  %ifarch ppc64
-    %define kdumpvar kdump
-  %endif
-
-  # hint: this can he overridden with "--define kvariants foo bar" on the
-  # rpmbuild command line, e.g. --define 'kvariants "" smp'
-  %{!?kvariants: %define kvariants %{?upvar} %{?smpvar} %{?xenvar} %{?kdumpvar} %{?paevar}}
-
-  # Use kmodtool to generate individual kmod subpackages directives
-  %define kmodtemplate rpmtemplate
-  %define kmod_version %{version}
-  %define kmod_release %{release}
-
-  %if 0%{!?kmoddir:1}
-    %define kmoddir kmod-xt
-  %endif
-
-  %if 0%{!?kmodtool:1}
-    %if 0%{?rhel} < 7
-      # Really only necessary for <= RHEL 6.3.
-      %define kmodtool sh %{_sourcedir}/kmodtool.el6
-    %else
-      %define kmodtool /usr/lib/rpm/redhat/kmodtool
-      %define kmodtooldep 1
-    %endif
-  %endif
-
+  %define kmoddir kmod-xt
   %define pkgko xt_DADDR
-  %if 0%{?kmodtool:1}
-    %if 0%{?kmod_kernel_version:1}
-      %{expand: %%define kverrel %(%{kmodtool} verrel %{?kmod_kernel_version}.%{_target_cpu} 2>/dev/null)}
-    %else
-      %{expand: %%define kverrel %(%{kmodtool} verrel 2>/dev/null)}
-    %endif
-  %endif
 %endif
 
 %define _prefix %{nil}
@@ -86,23 +56,22 @@ BuildRequires: module-init-tools
     %else
 BuildRequires: kmod
     %endif
+BuildRequires: redhat-rpm-config >= 9.0.3-51
 BuildRequires: kernel-abi-whitelists
 BuildRequires: kernel-devel
   %endif
-%endif
-%if 0%{?kmodtooldep:1}
-BuildRequires: %{kmodtool}
 %endif
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 Source0: %{name}-%{version}.tar.xz
+Source1: %{name}.files
 
-Source51: kmodtool.el6
-
-%if %{with_kmod} && 0%{?kmodtool:1}
-# Use kmodtool to generate individual kmod subpackages directives.
-%{expand:%(%{kmodtool} rpmtemplate %{kmod_name} %{kverrel} %{kvariants} 2>/dev/null)}
+%if %{with_kmod}
+  # Note: Can't indent kernel_module_package macro.
+  # Build only for standard kernel variant(s); for debug packages,
+  # append "debug" after "default" (separated by a space).
+%kernel_module_package -f %{SOURCE1} default
 %endif
 
 %description
@@ -111,26 +80,23 @@ Enables IPv4 and IPv6 destination address rewriting using iptables rules.
 The "%{name}" package provides an iptables user-space plugin "DADDR"
 target.  The plugin requires installation of a "kmod-%{name}"
 package providing a matching kernel module for the running kernel or
-the xt_DADDR module integrated into the kernel.
+the "%{pkgko}" module integrated into the kernel.
 
 %prep
 %setup -q -c -T -a 0
-%if %{with_kmod}
-  for kvariant in %{kvariants} ; do
-    cp -a -- '%{kmod_name}-%{version}' "_kmod_build_$kvariant"
-  done
-%endif
 
 
 %build
-%__make -C '%{kmod_name}-%{version}/%{extensionsdir}' all
+%__make -C '%{name}-%{version}/%{extensionsdir}' all
 %if %{with_kmod}
-  for kvariant in %{kvariants}
+  for flavor in %{flavors_to_build}
   do
-    ksrc="%{_usrsrc}/kernels/%{kverrel}${kvariant:+.$kvariant}"
+    rm -rf "_kmod_build_$flavor"
+    cp -a -- '%{name}-%{version}' "_kmod_build_$flavor"
+
     %__make \
-      -C "$ksrc" \
-      M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
+      -C "%{kernel_source $flavor}" \
+      M="$PWD/_kmod_build_${flavor}/%{kmoddir}" \
       MODVERSION='%{kmod_driver_version}'
   done
 %endif
@@ -138,21 +104,31 @@ the xt_DADDR module integrated into the kernel.
 
 %install
 %__rm -rf -- '%{buildroot}'
-%makeinstall -C '%{kmod_name}-%{version}/%{extensionsdir}'
+%makeinstall -C '%{name}-%{version}/%{extensionsdir}'
 %if %{with_kmod}
-  for kvariant in %{kvariants}
+  for flavor in %{flavors_to_build}
   do
-    ksrc="%{_usrsrc}/kernels/%{kverrel}${kvariant:+.$kvariant}"
-    kodir="%{buildroot}/lib/modules/%{kverrel}${kvariant}/extra/%{kmod_name}"
+    flavorext=$([ $flavor = default ] || echo $flavor)
+    kodir="%{buildroot}/lib/modules/%{kverrel}${flavorext}/extra/%{name}"
     %__make \
-      -C "$ksrc" \
-      M="$PWD/_kmod_build_${kvariant}/%{kmoddir}" \
+      -C "%{kernel_source $flavor}" \
+      M="$PWD/_kmod_build_${flavor}/%{kmoddir}" \
       MODVERSION='%{kmod_driver_version}'
-      # Need to make sure execute bits are set due to case #00603038.
-      install -m 755 -D \
-        "_kmod_build_${kvariant}/%{kmoddir}/%{pkgko}.ko" \
-        "$kodir/%{pkgko}.ko"
+    # Make sure execute bits are set so that strip-to-file can strip them.
+    install -m 755 -D \
+      "_kmod_build_${flavor}/%{kmoddir}/%{pkgko}.ko" \
+      "$kodir/%{pkgko}.ko"
   done
+  %if %{with_mangle}
+    %__mkdir_p -- "$RPM_BUILD_ROOT/etc/modprobe.d"
+    echo "options %{pkgko} table=mangle" > \
+      $RPM_BUILD_ROOT/etc/modprobe.d/%{pkgko}.conf
+  %endif
+  %if %{with_override}
+    %__mkdir_p -- "$RPM_BUILD_ROOT/etc/depmod.d"
+    echo "override %{pkgko} * weak-updates/%{name}" > \
+      $RPM_BUILD_ROOT/etc/depmod.d/%{name}.conf
+  %endif
 %endif
 
 
@@ -173,6 +149,8 @@ the xt_DADDR module integrated into the kernel.
 - Check for and handle IPv6 packets without transport payload or corrupt.
 - Handle checksum recomputation for IPPROTO_ICMPV6 packets.
 - Add copy of inet_proto_csum_replace16() for kernels without the function.
+- No longer call kmodtool directly.  Use kernel_module_package macro instead.
+- Add "--with mangle" and "--with override" build options.
 
 * Thu Aug 01 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.9.1-20190801
 - Fix "hw csum failure" when NIC drivers send up CHECKSUM_COMPLETE packets.

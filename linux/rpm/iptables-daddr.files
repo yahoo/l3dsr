@@ -1,0 +1,8 @@
+%defattr(644,root,root,755)
+/lib/modules/%2-%1
+%if %{with_mangle}
+/etc/modprobe.d/%{pkgko}.conf
+%endif
+%if %{with_override}
+/etc/depmod.d/%{name}.conf
+%endif

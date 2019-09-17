@@ -42,12 +42,15 @@ rpmspecfile  = $(rpmdir)/$(specfile)
 sources      = SOURCES
 sourcesfiles = $(addprefix $(sources)/,$(extrasrcfiles))
 
+kernel-devel = kernel-devel$(if $(KVERREL),-$(KVERREL))
+
 rpmpkgs  := $(shell \
 	$(MOCK) $(mock_srpm_args) --quiet \
 		--copyin '$(rpmspecfile)' . && \
+	$(if $(WITHOUT_KMOD),,$(MOCK) $(mock_srpm_args) --quiet \
+		--install '$(kernel-devel)' && ) \
 	$(MOCK) $(mock_srpm_args) --quiet \
 		--shell "rpm -q $(build_defs) --specfile '$(specfile)'")
-rpmpkgs  := $(rpmpkgs) kmod-$(firstword $(rpmpkgs))
 rpms      = $(foreach p,$(rpmpkgs),$(rpm_resultdir)/$p.rpm)
 
 pkgarches = $(foreach p,$(rpmpkgs),$(lastword $(subst ., ,$p)))
@@ -75,14 +78,23 @@ $(sources)/%: $(rpmdir)/% | $(sources)
 	cp -fp -- '$<' '$@'
 
 $(srpm): $(sourcesfiles) $(sources)/$(zsrctarfile) $(rpmspecfile)
+	$(MOCK) $(mock_srpm_args) --clean
+	$(if $(WITHOUT_KMOD),,\
+		$(MOCK) $(mock_srpm_args) --install '$(kernel-devel)')
 	$(MOCK) \
 		$(mock_srpm_args) \
+		--no-clean \
 		--buildsrpm \
 		--sources '$(sources)' \
 		--spec '$(rpmspecfile)'
 
 $(rpms): $(srpm)
-	$(MOCK) $(mock_rpm_args) --rebuild '$(srpm)'
+	$(MOCK) $(mock_rpm_args) --clean
+	$(if $(WITHOUT_KMOD),,\
+		$(MOCK) $(mock_rpm_args) --install '$(kernel-devel)')
+	$(MOCK) $(mock_rpm_args) \
+		--no-clean \
+		--rebuild '$(srpm)'
 
 $(srpm) $(rpms): $(MAKEFILE_LIST)
 

@@ -29,7 +29,6 @@ ifdef DIST
 endif
 
 rpmpkgs  := $(shell rpm -q $(build_defs) --specfile '$(specfile)' 2> /dev/null)
-rpmpkgs  := $(rpmpkgs) kmod-$(firstword $(rpmpkgs))
 
 pkgarches = $(foreach p,$(rpmpkgs),$(lastword $(subst ., ,$p)))
 rpmdirs   = $(foreach a,$(pkgarches),$(topdir)/RPMS/$a/)
