@@ -79,6 +79,8 @@ $(sources)/%: $(rpmdir)/% | $(sources)
 
 $(srpm): $(sourcesfiles) $(sources)/$(zsrctarfile) $(rpmspecfile)
 	$(MOCK) $(mock_srpm_args) --clean
+	# Rebuild rpmdb for when chroot format is different than native format.
+	$(MOCK) $(mock_srpm_args) --shell "rpmdb --rebuilddb"
 	$(if $(WITHOUT_KMOD),,\
 		$(MOCK) $(mock_srpm_args) --install '$(kernel-devel)')
 	$(MOCK) \
@@ -90,6 +92,8 @@ $(srpm): $(sourcesfiles) $(sources)/$(zsrctarfile) $(rpmspecfile)
 
 $(rpms): $(srpm)
 	$(MOCK) $(mock_rpm_args) --clean
+	# Rebuild rpmdb for when chroot format is different than native format.
+	$(MOCK) $(mock_srpm_args) --shell "rpmdb --rebuilddb"
 	$(if $(WITHOUT_KMOD),,\
 		$(MOCK) $(mock_rpm_args) --install '$(kernel-devel)')
 	$(MOCK) $(mock_rpm_args) \
