@@ -56,7 +56,7 @@ BuildRequires: module-init-tools
     %else
 BuildRequires: kmod
     %endif
-BuildRequires: redhat-rpm-config >= 9.0.3-51
+BuildRequires: redhat-rpm-config >= 9.0.3-42
 BuildRequires: kernel-abi-whitelists
 BuildRequires: kernel-devel
   %endif
