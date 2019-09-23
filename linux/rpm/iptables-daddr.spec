@@ -2,6 +2,7 @@
 #   with_kmod:     Disable generation of the kmod package
 #   with_mangle:   Set table from default of raw to mangle
 #   with_override: Enable kmod override rule
+#
 %define with_kmod	%{?_without_kmod:0}  %{?!_without_kmod:1}
 %define with_mangle	%{?_with_mangle:1}   %{?!_with_mangle:0}
 %define with_override	%{?_with_override:1} %{?!_with_override:0}
@@ -57,7 +58,6 @@ BuildRequires: module-init-tools
 BuildRequires: kmod
     %endif
 BuildRequires: redhat-rpm-config >= 9.0.3-42
-BuildRequires: kernel-abi-whitelists
 BuildRequires: kernel-devel
   %endif
 %endif

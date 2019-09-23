@@ -42,13 +42,15 @@ rpmspecfile  = $(rpmdir)/$(specfile)
 sources      = SOURCES
 sourcesfiles = $(addprefix $(sources)/,$(extrasrcfiles))
 
-kernel-devel = kernel-devel$(if $(KVERREL),-$(KVERREL))
+kernel-devel          = kernel-devel$(if $(KVERREL),-$(KVERREL))
+kernel-abi-whitelists = kernel-abi-whitelists$(if $(KVERREL),-$(KVERREL))
+install_pkgs          = $(kernel-devel) $(kernel-abi-whitelists)
 
 rpmpkgs  := $(shell \
 	$(MOCK) $(mock_srpm_args) --quiet \
 		--copyin '$(rpmspecfile)' . && \
 	$(if $(WITHOUT_KMOD),,$(MOCK) $(mock_srpm_args) --quiet \
-		--install '$(kernel-devel)' && ) \
+		--install $(install_pkgs) && ) \
 	$(MOCK) $(mock_srpm_args) --quiet \
 		--shell "rpm -q $(build_defs) --specfile '$(specfile)'")
 rpms      = $(foreach p,$(rpmpkgs),$(rpm_resultdir)/$p.rpm)
@@ -82,7 +84,7 @@ $(srpm): $(sourcesfiles) $(sources)/$(zsrctarfile) $(rpmspecfile)
 	# Rebuild rpmdb for when chroot format is different than native format.
 	$(MOCK) $(mock_srpm_args) --shell "rpmdb --rebuilddb"
 	$(if $(WITHOUT_KMOD),,\
-		$(MOCK) $(mock_srpm_args) --install '$(kernel-devel)')
+		$(MOCK) $(mock_srpm_args) --install $(install_pkgs))
 	$(MOCK) \
 		$(mock_srpm_args) \
 		--no-clean \
@@ -95,7 +97,7 @@ $(rpms): $(srpm)
 	# Rebuild rpmdb for when chroot format is different than native format.
 	$(MOCK) $(mock_srpm_args) --shell "rpmdb --rebuilddb"
 	$(if $(WITHOUT_KMOD),,\
-		$(MOCK) $(mock_rpm_args) --install '$(kernel-devel)')
+		$(MOCK) $(mock_rpm_args) --install $(install_pkgs))
 	$(MOCK) $(mock_rpm_args) \
 		--no-clean \
 		--rebuild '$(srpm)'
