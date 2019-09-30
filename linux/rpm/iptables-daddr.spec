@@ -30,6 +30,10 @@
 %if %{with_kmod}
   %define kmoddir kmod-xt
   %define pkgko xt_DADDR
+  %if %{?kmod_kernel_version:1}
+    # kernel_version macro is picked up by kernel_module_package macro.
+    %define kernel_version %{kmod_kernel_version}.%{_target_cpu}
+  %endif
 %endif
 
 %define _prefix %{nil}
