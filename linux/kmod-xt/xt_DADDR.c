@@ -47,7 +47,11 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 	struct iphdr *iph;
 	int transport_len;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)
+	if (skb_ensure_writable(skb, skb->len))
+#else
 	if (!skb_make_writable(skb, skb->len))
+#endif
 		return NF_DROP;
 
 	iph        = ip_hdr(skb);
@@ -127,7 +131,11 @@ daddr_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 	__u8	proto;
 	int	hdroff;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)
+	if (skb_ensure_writable(skb, skb->len))
+#else
 	if (!skb_make_writable(skb, skb->len))
+#endif
 		return NF_DROP;
 
 	ip6h        = ipv6_hdr(skb);
