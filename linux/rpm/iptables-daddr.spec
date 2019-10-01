@@ -15,7 +15,7 @@
   %define kmod_driver_version 0.10.0
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20190912
+  %define kmod_rpm_release 20191001
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -147,6 +147,10 @@ the "%{pkgko}" module integrated into the kernel.
 
 
 %changelog
+* Tue Oct 01 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.0-20191001
+- Add support for 5.3 kernels with skb_ensure_writable().
+- Add support for DESTDIR.
+
 * Thu Sep 12 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.0-20190912
 - Fix "hw csum failure" for ICMP packets when in CHECKSUM_COMPLETE mode.
 - Fix UDP checksum value when recomputed checksum is 0.
