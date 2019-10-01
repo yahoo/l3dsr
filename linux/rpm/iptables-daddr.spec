@@ -108,7 +108,8 @@ the "%{pkgko}" module integrated into the kernel.
 
 %install
 %__rm -rf -- '%{buildroot}'
-%makeinstall -C '%{name}-%{version}/%{extensionsdir}'
+%make_install -C '%{name}-%{version}/%{extensionsdir}' \
+			libdir=%{?buildroot:%{buildroot}}%{_libdir}
 %if %{with_kmod}
   for flavor in %{flavors_to_build}
   do

@@ -1,5 +1,3 @@
-# When making "install" target, libdir or ipt_libdir must be set.
-
 CFLAGS   = -O2 -g -Wall -Wunused -fPIC
 INCPATH  = ../kmod-xt
 CPPFLAGS = $(addprefix -I,$(INCPATH))
@@ -7,14 +5,23 @@ LINK.so  = $(LINK.o) -shared
 
 vpath %.h $(INCPATH)
 
-ipt_libdir ?= $(libdir)/xtables
+dflt_ipt_libdir = $(firstword $(wildcard \
+		    $(addsuffix /xtables,\
+		      $(addprefix $(DESTDIR),\
+			/usr/lib64 /lib64 /usr/lib /lib))))
 
-iptplugins  = libxt_DADDR.so
+ipt_libdir ?= $(if $(libdir),$(libdir)/xtables,$(dflt_ipt_libdir))
 
-instiptplugins = $(addprefix $(ipt_libdir)/,$(iptplugins))
+ifeq ($(ipt_libdir),)
+  $(error Must set libdir or ipt_libdir)
+endif
 
-all_targets     = $(iptplugins)
-install_targets = $(instiptplugins)
+iptplugin       = libxt_DADDR.so
+
+instiptplugin   = $(ipt_libdir)/$(iptplugin)
+
+all_targets     = $(iptplugin)
+install_targets = $(instiptplugin)
 clean_targets   = $(all_targets)
 
 
