@@ -30,6 +30,14 @@ MODULE_ALIAS("ipt_DADDR");
 MODULE_ALIAS("ip6t_DADDR");
 #endif
 
+#if defined(RHEL_RELEASE_CODE)
+#if RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(6,5)
+#define XT_DADDR_NEED_INET_PROTO_CSUM_REPLACE16
+#endif
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
+#define XT_DADDR_NEED_INET_PROTO_CSUM_REPLACE16
+#endif
+
 static char *table = "raw";
 module_param(table, charp, S_IRUGO);
 MODULE_PARM_DESC(table, "type of table (default: raw)");
@@ -96,9 +104,7 @@ daddr_tg4(struct sk_buff *skb, const struct xt_action_param *par)
 
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
-#if !((LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)) || \
-      (defined(RHEL_RELEASE_CODE) && defined(RHEL_RELEASE_VERSION) && \
-       (RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(6,5))))
+#if defined(XT_DADDR_NEED_INET_PROTO_CSUM_REPLACE16)
 static
 void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
 			       const __be32 *from, const __be32 *to,
