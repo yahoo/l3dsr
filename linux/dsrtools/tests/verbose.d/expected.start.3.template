@@ -1,0 +1,68 @@
+20161014-12:38:14: +modprobe xt_DADDR
+20161014-12:38:14: ===== Iptables Table is TABLE (TABLE_CMT)
+20161014-12:38:14: ===== Loading config file 20-vip.conf
+20161014-12:38:14: ====== Lexical analysis recognizes empty/comment line (# mix of IPv4/IPv6 L2DSR/L3DSR VIPs in a file name that has spaces)
+20161014-12:38:14: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.67.68=28)
+20161014-12:38:14: ====== Lexical analysis recognizes L2DSR IPv4 (188.125.82.38)
+20161014-12:38:14: ====== Lexical analysis recognizes L3DSR IPv6 (2a00:1288:110:21b::4002=19)
+20161014-12:38:14: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.82.196=43)
+20161014-12:38:14: ====== Lexical analysis recognizes L2DSR IPv6 (2a00:1288:110:21b::4005)
+20161014-12:38:14: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.82.253=17)
+20161014-12:38:14: ====== Lexical analysis recognizes L3DSR IPv6 (2a00:1288:110:21b::4006=17)
+20161014-12:38:14: ====== Config File Start
+20161014-12:38:14: ======     Number of DSRs = 7
+20161014-12:38:14: ======         dsr4: configured init vip=188.125.67.68 dscp=28
+20161014-12:38:14: ======         dsr4: configured init vip=188.125.82.38 dscp=
+20161014-12:38:14: ======         dsr6: configured init vip=2a00:1288:110:21b::4002 dscp=19
+20161014-12:38:14: ======         dsr4: configured init vip=188.125.82.196 dscp=43
+20161014-12:38:14: ======         dsr6: configured init vip=2a00:1288:110:21b::4005 dscp=
+20161014-12:38:14: ======         dsr4: configured init vip=188.125.82.253 dscp=17
+20161014-12:38:14: ======         dsr6: configured init vip=2a00:1288:110:21b::4006 dscp=17
+20161014-12:38:14: ====== Config File End
+20161014-12:38:14: +ip -o addr show lo
+20161014-12:38:14: ====== Loopbacks Start
+20161014-12:38:14: ======     Number of loopbacks = 7
+20161014-12:38:14: ======         loopback4: configured stopped vip=188.125.67.68
+20161014-12:38:14: ======         loopback4: configured stopped vip=188.125.82.38
+20161014-12:38:14: ======         loopback6: configured stopped vip=2a00:1288:110:21b::4002
+20161014-12:38:14: ======         loopback4: configured stopped vip=188.125.82.196
+20161014-12:38:14: ======         loopback6: configured stopped vip=2a00:1288:110:21b::4005
+20161014-12:38:14: ======         loopback4: configured stopped vip=188.125.82.253
+20161014-12:38:14: ======         loopback6: configured stopped vip=2a00:1288:110:21b::4006
+20161014-12:38:14: ====== Loopbacks End
+20161014-12:38:14: +iptables -L -t TABLE -n
+20161014-12:38:14: +ip6tables -L -t TABLE -n
+20161014-12:38:14: ====== Iptables Start
+20161014-12:38:14: ======     Number of iptables rules = 5
+20161014-12:38:14: ======         iptables4: configured stopped vip=188.125.67.68 dscp=28
+20161014-12:38:14: ======         iptables6: configured stopped vip=2a00:1288:110:21b::4002 dscp=19
+20161014-12:38:14: ======         iptables4: configured stopped vip=188.125.82.196 dscp=43
+20161014-12:38:14: ======         iptables4: configured stopped vip=188.125.82.253 dscp=17
+20161014-12:38:14: ======         iptables6: configured stopped vip=2a00:1288:110:21b::4006 dscp=17
+20161014-12:38:14: ====== Iptables End
+20161014-12:38:14: ====== Starting DSR 188.125.67.68=28
+20161014-12:38:14: +iptables -t TABLE -A PREROUTING -m dscp --dscp 28 -j DADDR --set-daddr=188.125.67.68
+20161014-12:38:14: +ip -o addr show lo
+20161014-12:38:14: +ifconfig lo:1 188.125.67.68 netmask 255.255.255.255
+20161014-12:38:14: ====== Starting DSR 188.125.82.38=
+20161014-12:38:14: +ip -o addr show lo
+20161014-12:38:14: +ifconfig lo:2 188.125.82.38 netmask 255.255.255.255
+20161014-12:38:14: ====== Starting DSR 2a00:1288:110:21b::4002=19
+20161014-12:38:14: +ip6tables -t TABLE -A PREROUTING -m dscp --dscp 19 -j DADDR --set-daddr=2a00:1288:110:21b::4002
+20161014-12:38:14: +ip -o addr show lo
+20161014-12:38:14: +ifconfig lo inet6 add 2a00:1288:110:21b::4002/128
+20161014-12:38:14: ====== Starting DSR 188.125.82.196=43
+20161014-12:38:14: +iptables -t TABLE -A PREROUTING -m dscp --dscp 43 -j DADDR --set-daddr=188.125.82.196
+20161014-12:38:14: +ip -o addr show lo
+20161014-12:38:14: +ifconfig lo:3 188.125.82.196 netmask 255.255.255.255
+20161014-12:38:14: ====== Starting DSR 2a00:1288:110:21b::4005=
+20161014-12:38:14: +ip -o addr show lo
+20161014-12:38:14: +ifconfig lo inet6 add 2a00:1288:110:21b::4005/128
+20161014-12:38:14: ====== Starting DSR 188.125.82.253=17
+20161014-12:38:14: +iptables -t TABLE -A PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=188.125.82.253
+20161014-12:38:14: +ip -o addr show lo
+20161014-12:38:14: +ifconfig lo:4 188.125.82.253 netmask 255.255.255.255
+20161014-12:38:14: ====== Starting DSR 2a00:1288:110:21b::4006=17
+20161014-12:38:14: +ip6tables -t TABLE -A PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=2a00:1288:110:21b::4006
+20161014-12:38:14: +ip -o addr show lo
+20161014-12:38:14: +ifconfig lo inet6 add 2a00:1288:110:21b::4006/128

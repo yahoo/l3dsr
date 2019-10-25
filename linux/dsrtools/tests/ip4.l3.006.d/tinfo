@@ -1,0 +1,3 @@
+TDESC="IPv4 L3DSR with same DSCP followed by good L3DSR"
+TRV_start_1=1
+TRV_status_1=1

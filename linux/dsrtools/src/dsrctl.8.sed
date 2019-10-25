@@ -31,7 +31,7 @@ is being changed.
 .PP
 The \fBdsrctl\fP command configures L3DSR by initializing loopback aliases
 and iptables entries that control how packets are handled on the machine.
-You can use the \fBdsrctl\fP \fIstatus\fP command to see the current state
+The \fBdsrctl\fP \fIstatus\fP command displays the current state
 of the L3DSR/L2DSR configurations.
 .PP
 L3DSR/L2DSR configurations are stored in the \fI/etc/dsr.d\fP directory.  Any
@@ -63,14 +63,39 @@ IPv6 addresses refer to the same VIP.
 .PP
 It is acceptable to configure multiple DSRs with the same IP address as long as
 they have different DSCP values.
+.PP
+L3DSR configurations support using the mangle or raw iptables table for
+the requisite iptables rules that implement L3DSR.  The default table is
+the raw table, but the mangle table may be selected with the appropriate
+iptables configuration.  If the mangle table is desired, create a file in
+\fI/etc/modprobe.d\fP (\fIe.g.\fP, \fIxt_DADDR.conf\fP) that contains the following
+line.
+
+	options xt_DADDR table=mangle
+
+If \fIxt_DADDR.conf\fP exists, it may already specify a table.  Edit the file
+and change the table as needed.  Do not call \fBmodprobe\fP directly with a different
+table setting because the change does not survive reboots.  Also, since
+kernel modules may be loaded automatically by some commands (\fIe.g.\fP,
+\fBiptables\fP/\fBip6tables\fP) and those commands don't pick up any options unless
+they are specified in \fI/etc/modprobe.d\fP, the configuration of the iptables table
+may not be as expected.  Mindful of these warnings, the following command line
+loads the \fBxt_DADDR\fP module with a specific table.
+
+	modprobe xt_DADDR table=mangle
+
+If the installed version of the \fBiptables_daddr\fP package does not support
+the raw table (\fIi.e.\fP, versions prior to 0.10.0), then specifying any
+table, either in \fI/etc/modprobe.d\fP or on the \fBmodprobe\fP command line,
+results in a failure that is evident in the \fBdmesg\fP output.
 
 .SH OPTIONS
 .PP
 
 .TP
 \fBaction\fP
-Run the given action.  You must specify one action.  The following actions are
-supported.
+Run the given action.  Only one action may be specified.  The following
+actions are supported.
 
 .RS
 
@@ -84,7 +109,9 @@ The \fBrestart\fP action calls the \fBstop\fP and \fBstart\fP actions.
 
 .TP
 \fBstart\fP
-Start the DSRs specified by the configuration file(s).
+Start the DSRs specified by the configuration file(s).  Note that the
+\fBiptables\fP command used by \fBdsrctl\fP to start the iptables rules
+automatically loads the \fBxt_DADDR\fP module.
 
 .TP
 \fBstatus\fP
@@ -92,7 +119,8 @@ Display the status of all configured DSRs.  The status contains several columns 
 
 .TP
 \fBstop\fP
-Stop the DSRs specified by the configuration file(s).
+Stop the DSRs specified by the configuration file(s).  If all DSRs are successfully
+stopped, then the \fBxt_DADDR\fP module is removed.
 
 .RE
 
@@ -110,12 +138,23 @@ use the given \fIdir\fP to search for configuration files instead of the
 default (\fI/etc/dsr.d\fP).
 
 .TP
+\fBiptbl\fP
+The iptbl column indicates for which iptables table the rule is destined.
+
+.TP
 \fB\-f\fR \fIfile\fP
 Use the given \fIfile\fP as the sole configuration file.
 
 .TP
 \fB\-h\fR
 Print the usage statement for \fBdsrctl\fP.
+
+.TP
+\fB\-k\fR
+Keep the \fBxt_DADDR\fP module when stopping DSRs.  The \fBxt_DADDR\fP module
+is removed by default when running the \fBstop\fP action, but this option
+prevents the module from being removed.  This option is ignored for all actions
+except \fBstop\fP.
 
 .TP
 \fB\-n\fR
@@ -228,6 +267,12 @@ If the iptables rule is activated, then it is displayed as "up".  Otherwise,
 the iptables rule is displayed as "--".
 
 .TP
+\fBiptbl\fP
+The iptbl column displays which iptables table is being used.  If \fBdsrctl\fP
+cannot determine which table is being used, then this field is displayed as
+"--".
+
+.TP
 \fBsrc\fP
 The src column is either \fBconf\fP for configured DSRs or \fBdisc\fP for
 discovered DSRs, loopback aliases and iptables rules.  This column is only
@@ -255,6 +300,11 @@ The \fBdsr\fP rcfile runs during every boot to start all of the configured DSRs.
 .TP
 /usr/lib/systemd/system/dsr.service (for distros using systemd)
 The \fBdsr\fP service runs during every boot to start all of the configured DSRs.
+
+.TP
+/sys/module/xt_DADDR/parameters/table (0.10.0 or later)
+Once the \fBxt_DADDR\fP module is loaded, \fBdsrctl\fP reads this file to determine
+which iptables table is being used.
 
 .SH AUTHOR
 Wayne Badger, Verizon Media Group

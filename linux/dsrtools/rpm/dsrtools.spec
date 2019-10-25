@@ -16,10 +16,10 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.2.4
+  %define pkg_version 1.3.0
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20190123
+  %define pkg_release 20191121
 %endif
 
 Summary: DSR tools
@@ -32,7 +32,7 @@ Group: System Environment/System
 URL: %{url}
 %endif
 Vendor: Oath, Inc.
-Packager: Wayne Badger <badger@oath.com>
+Packager: Wayne Badger <badger@verizonmedia.com>
 
 %define with_systemd  %{?_without_systemd:0}%{!?_without_systemd:1}
 
@@ -50,6 +50,15 @@ Packager: Wayne Badger <badger@oath.com>
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch: noarch
 Requires: ksh iptables iproute iptables-daddr
+
+%if 0%{?rhel:1}
+  %if 0%{?rhel} < 7
+Requires: module-init-tools
+  %else
+Requires: kmod
+  %endif
+%endif
+
 
 %if %{with_systemd}
 Requires: systemd
@@ -116,6 +125,11 @@ displaying status information.
 
 
 %changelog
+* Thu Nov 21 2019 Wayne Badger <badger@verizonmedia.com> 1.3.0-20191121
+- Add support for the table from /sys/module/xt_DADDR/parameters/table.
+- Remove the kernel module when stopping DSRs.
+- Add tests.
+
 * Wed Jan 23 2019 Wayne Badger <badger@verizonmedia.com> 1.2.4-20190123
 - Fix PATH processing.
 

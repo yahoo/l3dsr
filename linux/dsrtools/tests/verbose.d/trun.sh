@@ -1,0 +1,59 @@
+#!/bin/ksh
+
+. ../testfunctions.sh
+
+init "$@"
+
+unload_kmod
+load_kmod
+
+Tmplts=( expected.start.1
+         expected.status.1
+         expected.stop.1
+         expected.start.2
+         expected.status.2
+         expected.stop.2
+         expected.start.3
+         expected.status.3
+         expected.stop.3
+         expected.status.4
+         expected.status.5
+       )
+
+expand_templates Tmplts "$Table"
+
+# Run tests.
+typeset rv=0
+
+# Test for single -v.
+(( rv != 0 )) || docmd start  "-v"     n:20  1 || rv=1
+(( rv != 0 )) || docmd status "-v"     n:20  1 || rv=1
+(( rv != 0 )) || docmd stop   "-v"     n:20  1 || rv=1
+
+# Test for double -vv.
+(( rv != 0 )) || docmd start  "-vv"    n:20  2 || rv=1
+(( rv != 0 )) || docmd status "-vv"    n:20  2 || rv=1
+(( rv != 0 )) || docmd stop   "-vv"    n:20  2 || rv=1
+
+# Test for triple -vvv.
+(( rv != 0 )) || docmd start  "-vvv"   n:20  3 || rv=1
+(( rv != 0 )) || docmd status "-vvv"   n:20  3 || rv=1
+(( rv != 0 )) || docmd stop   "-vvv"   n:20  3 || rv=1
+
+# Test for triple -vvv.
+(( rv != 0 )) || docmd start  "-vvv"   n:20  3 || rv=1
+(( rv != 0 )) || docmd status "-vvv"   n:20  3 || rv=1
+(( rv != 0 )) || docmd stop   "-vvv"   n:20  3 || rv=1
+
+# Initialize loopbacks and iptables rules.
+(( rv != 0 )) || start_one_loopback 188.125.66.2 1 || rv=1
+(( rv != 0 )) || start_one_loopback 188.125.66.3 2 || rv=1
+(( rv != 0 )) || start_one_iptables_rule iptables PREROUTING 188.125.66.2 20 || rv=1
+(( rv != 0 )) || start_one_iptables_rule iptables PREROUTING 188.125.66.3 21 || rv=1
+
+(( rv != 0 )) || docmd status "-avvv"  n:30  4 || rv=1
+(( rv != 0 )) || docmd status "-vvv"   n:30  5 || rv=1
+
+dsrcleanup
+
+exit $rv

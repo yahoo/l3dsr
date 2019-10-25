@@ -1,0 +1,56 @@
+This directory contains tests for L3DSR.  Each subdirectory is a test where
+the name identifies whether the test uses IPv4/IPv6/both and L2DSR/L3DSR/both.
+	IPv4: ip4
+	IPv6: ip6
+	both: ip46
+
+	L2DSR: l2
+	L3DSR: l3
+	both:  l23
+
+The tests exercise the configuration of L3DSR using dsrctl and in so doing,
+create and delete iptables rules and loopbacks so the tests should not be run
+on a host actively participating in L3DSR.
+
+These tests do not test end-to-end L3DSR functionality where packets are sent
+among the participant hosts.  That testing is beyond the scope of this set of
+tests.
+
+
+Run all of the tests using ../../src/dsrctl:
+	make
+
+Run all of the tests using specific dsrctl:
+	make DSRCTL=<path_to_dsrctl>
+
+Run all of the tests using /usr/sbin/dsrctl:
+	make DSRCTL=/usr/sbin/dsrctl
+
+Run the tests in a single directory:
+	make DSRCTL=<path_to_dsrctl> mangle-ip46.l23.000.d
+	make DSRCTL=<path_to_dsrctl> raw-ip46.l23.000.d
+
+Run the tests in a single directory with verbose output:
+	make V=1 DSRCTL=<path_to_dsrctl> mangle-ip46.l23.000.d
+	make V=1 DSRCTL=<path_to_dsrctl> raw-ip46.l23.000.d
+
+The Makefile determines whether mangle, raw, or both can be run and runs
+the appropriate set of tests unless you specify a particular table.
+
+Each directory of tests contains a tinfo file that provides information about
+the tests.  The format of the file is a sourceable ksh file.  It must contain
+a line that provides a definition of a TDESC variable that contains a short,
+one line description of the tests.  For example,
+	TDESC="IPv4 L3DSRs with duplicate DSCPs (dec, oct, hex)"
+
+Additional lines indicate the expected return value of the dsrctl command.
+The format of the expected return value variable name is
+	TRV_<action>_<testnum>
+
+For example, if the action for the given command is "status", this is test
+number 5, and the expected return value is 1, then the following line would be
+correct.
+	TRV_status_5=1
+
+If the expected return value is 0, then you don't need to specify it in the
+tinfo file.

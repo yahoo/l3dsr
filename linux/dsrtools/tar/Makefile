@@ -5,9 +5,10 @@
 include ../macros.mk ../package.mk
 
 subdirs = \
-	src
+	src \
+	tests
 
-include $(addsuffix /files.mk,../$(subdirs))
+include $(addsuffix /files.mk,$(addprefix ../,$(subdirs)))
 
 srcfiles += \
 	LICENSE \

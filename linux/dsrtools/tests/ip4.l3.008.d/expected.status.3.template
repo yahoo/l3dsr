@@ -1,0 +1,7 @@
+type  state   name          ipaddr        dscp loopback iptables IPTBL_HDR src
+===== ======= ============  ============  ==== ======== ======== IPTBL_HDR_EQUALS ====
+l3dsr started 188.125.67.1  188.125.67.1  10   lo:1     up       IPTBL_VAL conf
+l3dsr started 188.125.67.2  188.125.67.2  11   lo:2     up       IPTBL_VAL conf
+l3dsr started 188.125.67.3  188.125.67.3  12   lo:3     up       IPTBL_VAL conf
+iptbl started 188.125.66.1  188.125.66.1  0x14 --       up       IPTBL_VAL disc
+iptbl started 188.125.66.2  188.125.66.2  0x15 --       up       IPTBL_VAL disc

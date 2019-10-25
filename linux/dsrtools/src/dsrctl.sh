@@ -9,19 +9,36 @@
 
 ScriptName=${0##*/}
 
+DaddrTableFile=/sys/module/xt_DADDR/parameters/table
+DfltTable=mangle
 FakeAliasNum=0
 GotLoopbacksAlready=0
 GotConfAlready=0
 GotIptablesAlready=0
-NoHeader=no
 IptablesChain=PREROUTING
+Kmod=xt_DADDR
+KmodLoaded=0
+NoHeader=no
 
 # We keep different maxlens for when we print with the -a option and when we
 # just print the configured DSRs.
-IPMaxlenAll=0
-IPMaxlenConf=0
-NameMaxlenAll=0
-NameMaxlenConf=0
+typeset -A Maxlen
+
+# The iptables table varies among the software versions of the kernel module.
+# Initially, it was hardcoded to be "mangle", and later gained the capability
+# of letting the installer choose.  The table cannot be changed once the
+# kernel module is loaded.  Some actions of this script require that the
+# kernel module be loaded (e.g., start, stop), but some don't (status).
+# Because of this, we need to keep the state of the table for use in this
+# script.
+#
+# Table subfields
+#     Name    Values
+#     ====    ======
+#     state   {detected, loaded, unloaded}
+#     val     {mangle, raw}
+#     print   {mangle, raw, --}
+typeset -A Table
 
 # Set up patterns that we use to match configuration lines.
 IPv4Pat="+([\d]).+([\d]).+([\d]).+([\d])"
@@ -118,6 +135,7 @@ typeset -A Iptables
 #     state_orig			# original state of the iptables rule
 #     indx				# indx of the iptables rule
 #     dscp				# unmodifie DSCP val of iptables rule
+#     table				# iptables table
 #     vipname				# unmodified VIP name of iptables rule
 #     vipnumeric			# unmodified numeric VIP of loopback
 #     iptsrc				# source of this iptables rule (configured, discovered)
@@ -134,7 +152,7 @@ function addpath
 
 	[[ -d $newpath ]] || return
 
-        # If newpath already exists in the path variable, then just return.
+	# If newpath already exists in the path variable, then just return.
 	[[ :$path: != *(?):$newpath:*(?) ]] || return
 
 	path="${path:+$path:}$newpath"
@@ -261,7 +279,7 @@ function fqdn_to_ipv4_addr
 	typeset ipaddrs line numericip oifs
 	typeset -a lines
 
-	ipaddrs=$(run getent ahosts "$fqdn") || return 1
+	ipaddrs=$(run getent ahostsv4 "$fqdn") || return 1
 
 	oifs=$IFS
 	IFS=$'\n'
@@ -453,16 +471,19 @@ function emit_data
 	typeset dscp=$5
 	typeset loopback=$6
 	typeset iptables=$7
-	typeset src=$8
+	typeset table=$8
+	typeset src=$9
 
 	typeset ipmaxlen namemaxlen
 
 	if (( AllOpt == 0 )); then
-		namemaxlen=$NameMaxlenConf
-		ipmaxlen=$IPMaxlenConf
+		namemaxlen=${Maxlen[nameconf]}
+		ipmaxlen=${Maxlen[ipconf]}
+		tblnamemaxlen=${Maxlen[tblnameconf]}
 	else
-		namemaxlen=$NameMaxlenAll
-		ipmaxlen=$IPMaxlenAll
+		namemaxlen=${Maxlen[nameall]}
+		ipmaxlen=${Maxlen[ipall]}
+		tblnamemaxlen=${Maxlen[tblnameall]}
 	fi
 
 	[[ $dsrtype    != = ]] || dsrtype=$(Dsr_header_sep 5)
@@ -472,6 +493,7 @@ function emit_data
 	[[ $dscp       != = ]] || dscp=$(Dsr_header_sep 4)
 	[[ $loopback   != = ]] || loopback=$(Dsr_header_sep 8)
 	[[ $iptables   != = ]] || iptables=$(Dsr_header_sep 8)
+	[[ $table      != = ]] || table=$(Dsr_header_sep $tblnamemaxlen)
 	[[ $src        != = ]] || src=$(Dsr_header_sep 4)
 
 	if (( AllOpt == 0 )); then
@@ -484,7 +506,7 @@ function emit_data
 			"$loopback" \
 			"$iptables"
 	else
-		printf "%-5s %-7s %-${namemaxlen}s  %-${ipmaxlen}s  %-4s %-8s %-8s %s\n" \
+		printf "%-5s %-7s %-${namemaxlen}s  %-${ipmaxlen}s  %-4s %-8s %-8s %-${tblnamemaxlen}s %s\n" \
 			"$dsrtype" \
 			"$state" \
 			"$name" \
@@ -492,6 +514,7 @@ function emit_data
 			"$dscp" \
 			"$loopback" \
 			"$iptables" \
+			"$table" \
 			"$src"
 	fi
 }
@@ -519,13 +542,13 @@ function Dsr_init
 
 	typeset fqdn indx key key2 normdscp vipnumeric
 
-	# We accept both FQDN names and numeric IPs.
+	# We accept both FQDNs and numeric IPs.
 	#
 	# If we get a FQDN, then it is used, by historical convention, only
 	# for the IPv4 address even if an IPv6 address exists for the FQDN.
 	#
 	# You can still have an IPv6 address, but it must be given as an IPv6
-	# address.
+	# address, not as a name.
 	if [[ $vip == $IPv4Pat ]]; then
 		vipnumeric=$vip
 		fqdn=$vip
@@ -550,10 +573,10 @@ function Dsr_init
 	# Now we create a new Dsr.
 	indx=${#Dsr_keys[@]}
 
-	(( ${#vipnumeric} <= IPMaxlenConf )) || IPMaxlenConf=${#vipnumeric}
-	(( ${#vipnumeric} <= IPMaxlenAll ))  || IPMaxlenAll=${#vipnumeric}
-	(( ${#fqdn} <= NameMaxlenConf ))     || NameMaxlenConf=${#fqdn}
-	(( ${#fqdn} <= NameMaxlenAll ))      || NameMaxlenAll=${#fqdn}
+	update_maxlen ipconf   ${#vipnumeric}
+	update_maxlen ipall    ${#vipnumeric}
+	update_maxlen nameconf ${#fqdn}
+	update_maxlen nameall  ${#fqdn}
 
 	# Create the key for this DSR.
 	key=$(makekey_normalized "$vipnumeric" "$dscp")
@@ -727,8 +750,8 @@ function Dsr_process_conf_line
 		#     FQDN, if that's what was provided
 		#     Otherwise, the provided numeric VIP
 		#
-                # The Dsr_init above created associative array elements for
-                # both types of keys.
+		# The Dsr_init above created associative array elements for
+		# both types of keys.
 		key=$(makekey_normalized "$vip" "$dscp")
 		vipnumeric=${Dsr[$key].vipnumeric}
 
@@ -794,7 +817,8 @@ function Dsr_read_configuration
 		Dsr_read_config_file "$ConfigFile" || return 1
 	else
 		if [[ ! -d "$ConfigDir" ]]; then
-			print -u2 -- "Cannot find the configuration directory ($ConfigDir)."
+			print -u2 -- "Cannot find the configuration directory ($ConfigDir).  " \
+				     "Is dsrtools installed?"
 			return 0
 		fi
 
@@ -824,8 +848,22 @@ function Dsr_header_sep
 # Print the header.
 function Dsr_print_dsr_header
 {
-	emit_data type state name ipaddr dscp loopback iptables src
-	emit_data =    =     =    =      =    =        =        =
+	typeset ipaddr=ipaddr
+	typeset name=name
+	typeset iptbl=iptbl
+
+	# Set the max column header length in case the header is longer than
+	# the items themselves.  For example, "iptbl" is longer than "raw".
+	update_maxlen ipall       ${#ipaddr}
+	update_maxlen nameall     ${#name}
+	update_maxlen tblnameall  ${#iptbl}
+
+	update_maxlen ipconf      ${#ipaddr}
+	update_maxlen nameconf    ${#name}
+	update_maxlen tblnameconf ${#iptbl}
+
+	emit_data type state $name $ipaddr dscp loopback iptables $iptbl src
+	emit_data =    =     =     =       =    =        =        =      =
 }
 
 # Calculate the state of a DSR based on the state of the loopbacks and
@@ -909,7 +947,8 @@ function Dsr_print_one_dsr
 {
 	typeset i=$1
 
-	typeset af dscp dsrtype iptout key loout normdscp normvip src state vip
+	typeset af dscp dsrtype iptout key loout
+	typeset normdscp normvip src state table vip
 
 	extractkey "${Dsr_keys[$i]}" key normvip normdscp
 	af=$(addraf "$normvip")
@@ -951,6 +990,7 @@ function Dsr_print_one_dsr
 		  "$dscp" \
 		  "$loout" \
 		  "$iptout" \
+		  "${Table[print]}" \
 		  "$src"
 
 	return 0
@@ -1548,11 +1588,12 @@ function Lo_get_loopbacks
 
 		vip=${Lo[$normvip].vipname}
 		vipnumeric=${Lo[$normvip].vipnumeric}
-		(( ${#vipnumeric} <= IPMaxlenAll )) || IPMaxlenAll=${#vipnumeric}
-		(( ${#vip} <= NameMaxlenAll )) || NameMaxlenAll=${#vip}
+
+		update_maxlen ipall   ${#vipnumeric}
+		update_maxlen nameall ${#vip}
 		if [[ ${Lo[$normvip].losrc} == configured ]]; then
-			(( ${#vipnumeric} <= IPMaxlenConf )) || IPMaxlenConf=${#vipnumeric}
-			(( ${#vip} <= NameMaxlenConf )) || NameMaxlenConf=${#vip}
+			update_maxlen ipconf   ${#vipnumeric}
+			update_maxlen nameconf ${#vip}
 		fi
 	done
 
@@ -1599,6 +1640,7 @@ function Lo_print_unconfigured
 			  "--" \
 			  "$loout" \
 			  "--" \
+			  "--" \
 			  "disc"
 	done
 }
@@ -1619,7 +1661,8 @@ function Lo_dbg_print
 		state=${Lo[$normvip].state}
 		vip=${Lo[$normvip].vipname}
 		if (( af == 4 )); then
-			vprt2 "======         loopback$af: $losrc $state vip=$vip $lonum"
+			[[ -z $lonum ]] || lonum=" $lonum"
+			vprt2 "======         loopback$af: $losrc $state vip=$vip$lonum"
 		else
 			vprt2 "======         loopback$af: $losrc $state vip=$vip"
 		fi
@@ -1670,23 +1713,26 @@ function Iptables_init
 }
 
 #
-# Get iptables/ip6tables information given the address family (4/6).
+# Get iptables/ip6tables information given the address family (4/6)
+# and the iptables table.
 #
-# For now, we only look at the mangle table.  Other rules that might
-# be running from other tables are ignored.
+# Other rules that might be running from other tables are ignored.
 #
-function Iptables_get_iptables_af
+function Iptables_get_iptables_af_table
 {
 	typeset af=$1
 
-	typeset conf_normdscp dscp dscp_field dscp_val dscp_val_field i
-	typeset iptablesout iptbl key line lines match_field normdscp normvip
-	typeset oifs pgm skipchain=1 str vip vip_field vipnumeric
+	typeset cmd conf_normdscp dscp dscp_val i
+	typeset iptablesout iptbl key line lines normdscp normvip oifs
+	typeset pgm skip_vip_adjust=0 skipchain=1 str vip vipnumeric
+	typeset -A fldnum
 
 	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
-	iptablesout=$(run $pgm -L -t mangle -n 2>&1)
-	(( $? < 2 )) || return 1
+	cmd=($pgm -L -t "${Table[val]}" -n)
+
+	iptablesout=$(run "${cmd[@]}" 2>&1)
+	(( $? < 2 )) || { print -u2 -- "Failed to get $pgm (${cmd[@]})."; return 1; }
 
 	oifs=$IFS
 	IFS=$'\n'
@@ -1699,7 +1745,7 @@ function Iptables_get_iptables_af
 	#  DADDR      all  --  anywhere    anywhere    DSCP match 0x13DADDR set 188.125.82.38
 	#  DADDR      all  --  anywhere    anywhere    DSCP match 0x2bDADDR set 188.125.82.196
 	#
-	# On RHEL5, it's slightly different.
+	# On some RHEL versions (RHEL5, RHEL8), it's slightly different.
 	#  DADDR      all  --  anywhere    anywhere    DSCP match 0x1c DADDR set 188.125.67.68
 	#
 	# Expecting output like this from the ip6tables cmd.
@@ -1708,27 +1754,28 @@ function Iptables_get_iptables_af
 	#  DADDR      all      anywhere    anywhere    DSCP match 0x16DADDR set 2001:4998:c:a06::2:4003
 	#  DADDR      all      anywhere    anywhere    DSCP match 0x18DADDR set 2001:4998:c:a06::2:4004
 	#
-	# On Rhel5, it's slightly different.
+	# On some RHEL versions (RHEL5, RHEL8), it's slightly different.
 	#  DADDR      all      anywhere    anywhere    DSCP match 0x18 DADDR set 2001:4998:c:a06::2:4004
 
+	# Initialize the expected field numbers for the fields that we care about.
 	if (( af == 4 )); then
-		dscp_field=5
-		match_field=6
-		dscp_val_field=7
-		vip_field=9
+		fldnum[dscp]=5
+		fldnum[match]=6
+		fldnum[dscp_val]=7
+		fldnum[vip]=9
 	else
-		dscp_field=4
-		match_field=5
-		dscp_val_field=6
-		vip_field=8
+		fldnum[dscp]=4
+		fldnum[match]=5
+		fldnum[dscp_val]=6
+		fldnum[vip]=8
 	fi
 
 	# Read each iptables output line and process.
 	for line in "${lines[@]}"; do
 		iptbl=($line)
 
-                # We only care about the $IptablesChain chain.  Rules in any
-                # other chains are ignored.
+		# We only care about the $IptablesChain chain.  Rules in any
+		# other chains are ignored.
 		if [[ ${iptbl[0]} == Chain ]]; then
 			[[ ${iptbl[1]} == $IptablesChain ]] && skipchain=0 || skipchain=1
 			continue
@@ -1736,18 +1783,22 @@ function Iptables_get_iptables_af
 
 		(( skipchain == 0 )) || continue
 		[[ ${iptbl[0]} == DADDR ]] || continue
-		[[ ${iptbl[$dscp_field]} == DSCP ]] || continue
-		[[ ${iptbl[$match_field]} == match ]] || continue
+		[[ ${iptbl[${fldnum[dscp]}]} == DSCP ]] || continue
+		[[ ${iptbl[${fldnum[match]}]} == match ]] || continue
 
-		dscp_val=${iptbl[$dscp_val_field]}
+		dscp_val=${iptbl[${fldnum[dscp_val]}]}
 		dscp=${dscp_val%%DADDR}
-		if [[ $dscp == $dscp_val ]]; then
-			(( af == 4 )) && vip_field=10 || vip_field=9
-		fi
-		vip=${iptbl[$vip_field]}
+
+		# Check if the match value and "DADDR" are pushed together.
+		# If not, then adjust fldnum[vip].  We only have to make
+		# the adjustment once.
+		(( skip_vip_adjust )) ||
+			{ [[ $dscp != $dscp_val ]] || (( fldnum[vip]++ )); skip_vip_adjust=1; }
+
+		vip=${iptbl[${fldnum[vip]}]}
 
 		[[ -n $dscp ]] || continue
-		[[ -n $vip ]] || continue
+		[[ -n $vip  ]] || continue
 
 		normvip=$(normalize_vip "$vip")
 		normdscp=$(normalize_dscp "$dscp")
@@ -1808,11 +1859,13 @@ function Iptables_get_iptables_af
 			fi
 		fi
 
-		(( ${#vipnumeric} <= IPMaxlenAll )) || IPMaxlenAll=${#vipnumeric}
-		(( ${#vip} <= NameMaxlenAll )) || NameMaxlenAll=${#vip}
+		update_maxlen ipall      ${#vipnumeric}
+		update_maxlen nameall    ${#vip}
+		update_maxlen tblnameall ${#Table[print]}
 		if [[ ${Iptables[$key].iptsrc} == configured ]]; then
-			(( ${#vipnumeric} <= IPMaxlenConf )) || IPMaxlenConf=${#vipnumeric}
-			(( ${#vip} <= NameMaxlenConf )) || NameMaxlenConf=${#vip}
+			update_maxlen ipconf      ${#vipnumeric}
+			update_maxlen nameconf    ${#vip}
+			update_maxlen tblnameconf ${#Table[print]}
 		fi
 	done
 }
@@ -1820,7 +1873,7 @@ function Iptables_get_iptables_af
 # Get all of the iptables information.
 function Iptables_get_iptables
 {
-	typeset i key normdscp normvip
+	typeset af i key normdscp normvip
 
 	(( GotIptablesAlready == 0 )) || return 0
 
@@ -1834,8 +1887,8 @@ function Iptables_get_iptables
 		Iptables[$key].rulecnt=0
 	done
 
-	Iptables_get_iptables_af 4
-	Iptables_get_iptables_af 6
+	Iptables_get_iptables_af_table 4 || return 1
+	Iptables_get_iptables_af_table 6 || return 1
 
 	return 0
 }
@@ -1874,7 +1927,7 @@ function Iptables_start
 	vipnumeric=${Iptables[$key].vipnumeric}
 	dscp=${Iptables[$key].dscp}
 
-	cmd=($pgm -t mangle \
+	cmd=($pgm -t "${Table[val]}" \
 	          -A "$IptablesChain" \
 	          -m dscp \
 	          --dscp "$dscp" \
@@ -1887,7 +1940,8 @@ function Iptables_start
 	else
 
 		Iptables[$key].state=error
-		print -- "Failed to start iptables rule for $vipnumeric=$dscp."
+		print -- "Failed to start iptables rule in table " \
+		         "${Table[val]} for $vipnumeric=$dscp."
 		rv=1
 	fi
 
@@ -1923,7 +1977,7 @@ function Iptables_stop
 	af=$(addraf "$normvip")
 	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
-	cmd=($pgm -t mangle \
+	cmd=($pgm -t "${Table[val]}" \
 	          -D "$IptablesChain" \
 	          -m dscp \
 	          --dscp "$dscp" \
@@ -1989,6 +2043,7 @@ function Iptables_print_unconfigured
 			  "${Iptables[$key].dscp}" \
 			  "--" \
 			  "$iptout" \
+			  "${Table[print]}" \
 			  "disc"
 	done
 }
@@ -1997,8 +2052,7 @@ function Iptables_dbg_print
 {
 	typeset af i iptsrc key normdscp normvip state vip
 
-	Iptables_get_iptables
-	(( $? == 0 )) || return 1
+	Iptables_get_iptables || return 1
 
 	vprt2 "====== Iptables Start"
 	vprt2 "======     Number of iptables rules = ${#Iptables_keys[@]}"
@@ -2021,12 +2075,136 @@ function Iptables_dbg_print
 # End of Iptables
 # =======================================================================
 
+# Set the default iptables table.
+#
+# The default default is mangle for historical reasons.  If $DaddrTableFile exists,
+# then the kernel module exposes which table it is using in that file.
+#
+# Note that $DaddrTableFile doesn't exist until the module is loaded, so even
+# if loading the module might default to using raw, this script defaults to
+# mangle until the module is loaded.
+function set_iptables_table
+{
+	typeset table vcmt
+
+	if [[ -e "$DaddrTableFile" ]]; then
+		if [[ ! -r "$DaddrTableFile" ]]; then
+			print -u2 -- "Cannot read $DaddrTableFile.  Exiting."
+			exit 1;
+		fi
+
+		Table[state]=detected
+		Table[val]=$(< "$DaddrTableFile")
+		Table[print]=${Table[val]}
+		vcmt="kmod is loaded, using $DaddrTableFile"
+
+	elif kmod_is_loaded; then
+
+		Table[state]=loaded
+		Table[val]=$DfltTable
+		Table[print]=${Table[val]}
+		vcmt="kmod is loaded, using default"
+
+	else
+		Table[state]=unloaded
+		Table[val]=mangle
+		Table[print]=--
+		vcmt="kmod is unloaded, using default default"
+	fi
+
+	update_maxlen tblnameall  ${#Table[print]}
+	update_maxlen tblnameconf ${#Table[print]}
+
+	vprt2 "===== Iptables Table is ${Table[val]} ($vcmt)"
+}
+
+# We keep the max length of column entries in the Maxlen associative array.
+# Initialize them to zero here.
+function initialize_maxlens
+{
+	typeset name t
+
+	for t in all conf; do
+		for name in ip name tblname; do
+			Maxlen[$name$t]=0
+		done
+	done
+}
+
+# Update the maxlen for the given name if appropriate.
+function update_maxlen
+{
+	typeset name=$1
+	typeset val=$2
+
+	(( val <= ${Maxlen[$name]} )) || Maxlen[$name]=$val
+}
+
+# Return 0 if the xt_DADDR module is loaded.
+# Return 1 if the xt_DADDR module is not loaded.
+function kmod_is_loaded
+{
+	[[ -r /proc/modules ]] || { echo "Can't read /proc/modules.  Exiting."; exit 1; }
+	egrep -qw "^$Kmod" /proc/modules
+}
+
+#
+# Load the xt_DADDR kernel module if it's not already loaded.
+#
+# This script tries to load the kernel module whenever it is run with an
+# action that can change the state of the iptables.  The kernel module is
+# loaded so that we don't have to guess what iptables table is being used.
+# Adding iptables rules with the wrong table confuses the kernel module loader
+# if it has to load the kernel module and can make unloading the kernel module
+# more difficult.
+#
+# Note that any kernel module options that are necessary for xt_DADDR must be
+# specified in /etc/modprobe.d.  For example, if you want to use a table other
+# than the default, then specify that in a .conf file in /etc/modprobe.d.
+# Don't use the command line option to set the option because the kernel
+# module can be loaded automatically (e.g., when running iptables) and the
+# options won't be used.
+#
+function load_kmod
+{
+	typeset out rv
+
+	# Only load the module once.
+	(( !KmodLoaded )) || return 0
+
+	! kmod_is_loaded || { KmodLoaded=1; return 0; }
+
+	out=$(run modprobe $Kmod 2>&1)
+	rv=$?
+	(( rv == 0 )) && KmodLoaded=1 || vprt3 "$out"
+
+	return $rv
+}
+
+# Remove the xt_DADDR kernel module.
+function remove_kmod
+{
+	typeset out rv
+
+	[[ $KeepModule == no ]] || return 0
+
+	out=$(run modprobe -r $Kmod 2>&1)
+	rv=$?
+	(( rv == 0 )) || vprt3 "$out"
+
+	return $rv
+}
+
+
 # Global initialization.
 function init
 {
 	typeset rv=0 norun_save=$NoRun
 
 	NoRun=no
+
+	initialize_maxlens
+	set_iptables_table
 
 	Dsr_read_configuration || \
 		{ rv=1 && (( NoFail == 1 )) } || \
@@ -2149,6 +2327,10 @@ function startdsrs
 {
 	typeset i normdscp normvip key rv=0 vip
 
+	# We need to load the kernel module before doing anything so that we
+	# can find out which iptables table to use.
+	load_kmod || return 1
+
 	init || return 1
 
 	# Start all of the configured DSRs.
@@ -2206,7 +2388,7 @@ function stopdsrs
 	done
 
 	# If $AllOpt is set, then remove all the DSRs we can find.
-	(( AllOpt == 1 )) || return 0
+	(( AllOpt == 1 )) || { remove_kmod; return 0; }
 
 	Iptables_reread_iptables
 	Lo_reread_loopbacks
@@ -2223,6 +2405,8 @@ function stopdsrs
 		vprt2 "====== Removing loopback alias ${Lo_keys[$i]}"
 		Lo_stop "${Lo_keys[$i]}"
 	done
+
+	remove_kmod
 
 	return 0
 }
@@ -2250,11 +2434,11 @@ exec 3>&1
 AllOpt=0
 ConfigDir=/etc/dsr.d
 ConfigFile=
-VerboseLevel=0
-NoRun=no
+KeepModule=no
 NoFail=0
-while getopts ad:f:hnvx OPTION
-do
+NoRun=no
+VerboseLevel=0
+while getopts -a "$ScriptName" ad:f:hknvx OPTION; do
     case $OPTION in
 	a)      AllOpt=1
 		;;
@@ -2264,6 +2448,8 @@ do
 		;;
 	n)      NoRun=yes
 		;;
+	k)      KeepModule=yes
+		;;
 	v)      (( ++VerboseLevel ))
 		;;
 	x)      NoHeader=yes
@@ -2271,8 +2457,7 @@ do
 	h)      print -- "$Usage"
 		exit 0
 		;;
-	\?)     print -u2 -- "$Usage"
-		exit 1
+	\?)     exit 1
 		;;
     esac
 done
@@ -2317,8 +2502,7 @@ case $Action in
 		    stopdsrs
 		    retval=$?
 		    ;;
-  *)                print -u2 -- "Invalid action provided ($Action)"
-		    print -u2 -- "$Usage"
+  *)                print -u2 -- "Invalid action provided ($Action)."
 		    retval=1
 		    ;;
 esac

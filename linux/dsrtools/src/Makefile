@@ -65,7 +65,9 @@ instdirs        = $(instrcd) \
 
 clean_targets = $(all_targets)
 
-distclean_targets = $(clean_targets) $(topdir)
+clobber_targets = $(clean_targets) $(topdir)
+
+distclean_targets = $(clobber_targets)
 
 all: $(all_targets)
 

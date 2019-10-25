@@ -27,6 +27,9 @@ all install:
 tar:
 	$(MAKE) -C '$@' all
 
+tests: all
+	$(MAKE) -C '$@' all
+
 src-% tar-%:
 	$(MAKE) -C '$(subst -$*,,$@)' '$*'
 
@@ -37,6 +40,7 @@ clean clobber distclean:
 	$(if $(PP),$(MAKE) -C '$(PP)' $@)
 	$(MAKE) -C tar $@
 	$(MAKE) -C src $@
+	$(MAKE) -C tests $@
 
 
 .PHONY: all install tar spkg pkgs print_spkg print_pkgs

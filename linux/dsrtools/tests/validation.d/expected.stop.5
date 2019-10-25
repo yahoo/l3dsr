@@ -1,0 +1,17 @@
+Usage: dsrctl [-d <configdir>] [-f <configfile>] [-ahnvx] <action>
+       -a       For status, print status for all discovered loopbacks
+                and iptables rules, not just configured DSRs.
+       -d dir   Specify DSR config directory.  Defaults to /etc/dsr.d.
+       -f file  Read a single DSR config from this file.
+                The -d option is ignored if -f is used.
+       -h       Print a usage statement and exit.
+       -n       Don't actually perform the operations.  This option
+                is useful with the verbose option.
+       -v       Be verbose.  More -v options get more verbose output.
+       -x       Don't print the header.
+       <action> Run the requested action.  Supported actions are:
+                check
+                restart
+                status
+                start
+                stop

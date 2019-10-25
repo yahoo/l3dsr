@@ -1,0 +1,11 @@
+Duplicate iptables rules found for VIP 2a00:1288:110:21b::4003=0x14 count=4
+Duplicate iptables rules found for VIP 2a00:1288:110:21b::4004=0x15 count=5
+type  state   name                     ipaddr                   dscp loopback iptables IPTBL_HDR src
+===== ======= =======================  =======================  ==== ======== ======== IPTBL_HDR_EQUALS ====
+l3dsr stopped 188.125.67.68            188.125.67.68            28   --       --       IPTBL_VAL conf
+l3dsr stopped 188.125.67.69            188.125.67.69            29   --       --       IPTBL_VAL conf
+l3dsr stopped 2a00:1288:110:21b::4002  2a00:1288:110:21b::4002  19   --       --       IPTBL_VAL conf
+l3dsr stopped 2a00:1288:110:21b::4005  2a00:1288:110:21b::4005  20   --       --       IPTBL_VAL conf
+iptbl started 188.125.67.70            188.125.67.70            0x1e --       up       IPTBL_VAL disc
+iptbl started 2a00:1288:110:21b::4003  2a00:1288:110:21b::4003  0x14 --       up       IPTBL_VAL disc
+iptbl started 2a00:1288:110:21b::4004  2a00:1288:110:21b::4004  0x15 --       up       IPTBL_VAL disc

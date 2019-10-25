@@ -1,0 +1,3 @@
+TDESC="IPv4 L3DSRs with duplicate DSCPs (dec, oct, hex)"
+TRV_start_1=1
+TRV_status_1=1

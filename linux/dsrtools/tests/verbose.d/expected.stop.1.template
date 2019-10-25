@@ -1,0 +1,16 @@
++ip -o addr show lo
++iptables -L -t TABLE -n
++ip6tables -L -t TABLE -n
++ip6tables -t TABLE -D PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=2a00:1288:110:21b::4006
++ifconfig lo inet6 del 2a00:1288:110:21b::4006/128
++iptables -t TABLE -D PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=188.125.82.253
++ifconfig lo:4 down
++ifconfig lo inet6 del 2a00:1288:110:21b::4005/128
++iptables -t TABLE -D PREROUTING -m dscp --dscp 43 -j DADDR --set-daddr=188.125.82.196
++ifconfig lo:3 down
++ip6tables -t TABLE -D PREROUTING -m dscp --dscp 19 -j DADDR --set-daddr=2a00:1288:110:21b::4002
++ifconfig lo inet6 del 2a00:1288:110:21b::4002/128
++ifconfig lo:2 down
++iptables -t TABLE -D PREROUTING -m dscp --dscp 28 -j DADDR --set-daddr=188.125.67.68
++ifconfig lo:1 down
++modprobe -r xt_DADDR
