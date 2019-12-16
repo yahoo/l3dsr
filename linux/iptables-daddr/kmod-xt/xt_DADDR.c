@@ -22,7 +22,7 @@
 #include <linux/netfilter/x_tables.h>
 #include "xt_DADDR.h"
 
-MODULE_AUTHOR("Oath Inc.  <linux-kernel-team@verizonmedia.com>");
+MODULE_AUTHOR("Verizon Media <linux-kernel-team@verizonmedia.com>");
 MODULE_DESCRIPTION("Xtables: destination address modification");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_DADDR");

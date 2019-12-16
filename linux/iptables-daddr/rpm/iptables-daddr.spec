@@ -48,7 +48,7 @@ Group: Applications/System
 %if 0%{?url:1}
 URL: %{url}
 %endif
-Vendor: Oath Inc.
+Vendor: Verizon Media
 Packager: Quentin Barnes <qbarnes@verizonmedia.com>
 
 %if 0%{?rhel:1}
