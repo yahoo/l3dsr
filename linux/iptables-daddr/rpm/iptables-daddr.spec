@@ -3,9 +3,9 @@
 #   with_mangle:   Set table from default of raw to mangle
 #   with_override: Enable kmod override rule
 #
-%define with_kmod	%{?_without_kmod:0}  %{?!_without_kmod:1}
-%define with_mangle	%{?_with_mangle:1}   %{?!_with_mangle:0}
-%define with_override	%{?_with_override:1} %{?!_with_override:0}
+%define with_kmod %{?_without_kmod:0}  %{?!_without_kmod:1}
+%define with_mangle %{?_with_mangle:1}   %{?!_with_mangle:0}
+%define with_override %{?_with_override:1} %{?!_with_override:0}
 
 
 %if 0%{!?kmod_name:1}
@@ -109,7 +109,7 @@ the "%{pkgko}" module integrated into the kernel.
 %install
 %__rm -rf -- '%{buildroot}'
 %make_install -C '%{name}-%{version}/%{extensionsdir}' \
-			libdir=%{?buildroot:%{buildroot}}%{_libdir}
+      libdir=%{?buildroot:%{buildroot}}%{_libdir}
 %if %{with_kmod}
   for flavor in %{flavors_to_build}
   do
