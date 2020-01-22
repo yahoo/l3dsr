@@ -68,7 +68,7 @@ files that end with \fI.conf\fP are considered configuration files and all
 others are ignored.
 
 .SH AUTHOR
-Wayne Badger, Verizon Media Group
+Wayne Badger, Verizon Media
 .SH "REPORTING BUGS"
 Report bugs to <linux\-kernel\-team@verizonmedia.com>.
 .SH "SEE ALSO"

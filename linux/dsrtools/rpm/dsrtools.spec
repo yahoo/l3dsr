@@ -31,7 +31,7 @@ Group: System Environment/System
 %if 0%{?url:1}
 URL: %{url}
 %endif
-Vendor: Oath, Inc.
+Vendor: Verizon Media
 Packager: Wayne Badger <badger@verizonmedia.com>
 
 %define with_systemd  %{?_without_systemd:0}%{!?_without_systemd:1}

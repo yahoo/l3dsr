@@ -3,7 +3,7 @@ on a server.  By creating a configuration file that is typically stored
 in /etc/dsr.d, the DSR configuration is started whenever the host
 boots.
 
-dsrtools is supported on RHEL5 and later.
+dsrtools is supported on RHEL6 and later.
 
 Man pages are available in dsr.conf(5) and dsrctl(8).
 

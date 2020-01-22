@@ -307,7 +307,7 @@ Once the \fBxt_DADDR\fP module is loaded, \fBdsrctl\fP reads this file to determ
 which iptables table is being used.
 
 .SH AUTHOR
-Wayne Badger, Verizon Media Group
+Wayne Badger, Verizon Media
 .SH "REPORTING BUGS"
 Report bugs to <linux\-kernel\-team@verizonmedia.com>.
 .SH "SEE ALSO"
