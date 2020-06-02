@@ -12,10 +12,10 @@
   %define kmod_name iptables-daddr
 %endif
 %if 0%{!?kmod_driver_version:1}
-  %define kmod_driver_version 0.10.0
+  %define kmod_driver_version 0.10.1
 %endif
 %if 0%{!?kmod_rpm_release:1}
-  %define kmod_rpm_release 20191001
+  %define kmod_rpm_release 20200602
 %endif
 
 %if 0%{!?iptables_version_maj:1}
@@ -60,6 +60,9 @@ Requires: %{name}-kmod = %{version}-%{release}
 BuildRequires: module-init-tools
     %else
 BuildRequires: kmod
+    %endif
+    %if 0%{?rhel} > 7
+BuildRequires: kernel-rpm-macros
     %endif
 BuildRequires: redhat-rpm-config >= 9.0.3-42
 BuildRequires: kernel-devel
@@ -147,6 +150,10 @@ the "%{pkgko}" module integrated into the kernel.
 
 
 %changelog
+* Tue Jun 02 2020 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.1-20200602
+- Fix more "hw csum failure"s with IPv6 and CHECKSUM_COMPLETE mode.
+- Fix RHEL 8 build issue with missing kernel-rpm-macros package.
+
 * Tue Oct 01 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.0-20191001
 - Add support for 5.3 kernels with skb_ensure_writable().
 - Add support for DESTDIR.
