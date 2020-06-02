@@ -1,7 +1,7 @@
 /* This module sets the IP destination address field. */
 
 /* Copyright (C) 2011, 2012, 2014 Yahoo! Inc.
- * Copyright (C) 2019 Verizon Media, Inc.
+ * Copyright (C) 2019, 2020 Verizon Media, Inc.
  *    Written by: Quentin Barnes <qbarnes@verizonmedia.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -174,7 +174,7 @@ daddr_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 
 		inet_proto_csum_replace16(&icmp6_hdr(skb)->icmp6_cksum, skb,
 					  old_daddr6.s6_addr32,
-					  new_daddr6->s6_addr32, 1);
+					  new_daddr6->s6_addr32, 0);
 		break;
 
 	case IPPROTO_UDP: {
@@ -190,7 +190,7 @@ daddr_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 		if (*checkp || skb->ip_summed == CHECKSUM_PARTIAL) {
 			inet_proto_csum_replace16(checkp, skb,
 						  old_daddr6.s6_addr32,
-						  new_daddr6->s6_addr32, 1);
+						  new_daddr6->s6_addr32, 0);
 
 			if (*checkp == 0)
 				*checkp = CSUM_MANGLED_0;
@@ -204,7 +204,7 @@ daddr_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 
 		inet_proto_csum_replace16(&tcp_hdr(skb)->check, skb,
 					  old_daddr6.s6_addr32,
-					  new_daddr6->s6_addr32, 1);
+					  new_daddr6->s6_addr32, 0);
 		break;
 	}
 
