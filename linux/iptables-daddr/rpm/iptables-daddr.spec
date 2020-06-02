@@ -150,6 +150,10 @@ the "%{pkgko}" module integrated into the kernel.
 
 
 %changelog
+* Thu Mar 11 2021 Dmitry Savintsev <dsavints@verizonmedia.com>
+0.10.2-20210311
+- combine beta, dsrtools, and insertMode branches.
+
 * Tue Jun 02 2020 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.1-20200602
 - Fix more "hw csum failure"s with IPv6 and CHECKSUM_COMPLETE mode.
 - Fix RHEL 8 build issue with missing kernel-rpm-macros package.
