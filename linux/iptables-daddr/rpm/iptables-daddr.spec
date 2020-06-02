@@ -61,6 +61,9 @@ BuildRequires: module-init-tools
     %else
 BuildRequires: kmod
     %endif
+    %if 0%{?rhel} > 7
+BuildRequires: kernel-rpm-macros
+    %endif
 BuildRequires: redhat-rpm-config >= 9.0.3-42
 BuildRequires: kernel-devel
   %endif
@@ -149,6 +152,7 @@ the "%{pkgko}" module integrated into the kernel.
 %changelog
 * Tue Jun 02 2020 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.1-20200602
 - Fix more "hw csum failure"s with IPv6 and CHECKSUM_COMPLETE mode.
+- Fix RHEL 8 build issue with missing kernel-rpm-macros package.
 
 * Tue Oct 01 2019 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.0-20191001
 - Add support for 5.3 kernels with skb_ensure_writable().
