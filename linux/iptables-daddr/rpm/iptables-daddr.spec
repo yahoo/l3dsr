@@ -150,8 +150,7 @@ the "%{pkgko}" module integrated into the kernel.
 
 
 %changelog
-* Thu Mar 11 2021 Dmitry Savintsev <dsavints@verizonmedia.com>
-0.10.2-20210311
+* Thu Mar 11 2021 Dmitry Savintsev <dsavints@verizonmedia.com> 0.10.2-20210311
 - combine beta, dsrtools, and insertMode branches.
 
 * Tue Jun 02 2020 Quentin Barnes <qbarnes@verizonmedia.com> 0.10.1-20200602
