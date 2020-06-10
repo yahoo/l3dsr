@@ -5,7 +5,7 @@
 #   DIST		%{dist} for rpmbuild or '""' for unsetting it
 #   PACKAGE		name of package
 #   RELEASE		release of package
-#   BUILD_NUMBER	build number of package
+#   BUILD_ID		build id, appended to release
 #   OSMACRO		see below
 #   OSMACROVER		see below
 #   URL			URL included in package's information
@@ -28,7 +28,7 @@ build_defs = \
 	     $(if $(PACKAGE),--define 'pkg_name $(PACKAGE)') \
 	     $(if $(VERSION),--define 'pkg_version $(VERSION)') \
 	     $(if $(RELEASE),--define 'pkg_release $(RELEASE)') \
-	     $(if $(BUILD_NUMBER),--define 'build_number $(BUILD_NUMBER)') \
+	     $(if $(BUILD_ID),--define 'build_id $(BUILD_ID)') \
 	     $(if $(OSMACRO),--define '$(OSMACRO) $(OSMACROVER)') \
 	     $(if $(URL),--define 'url $(URL)') \
 	     $(EXTRA_BUILD_DEFS))

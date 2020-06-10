@@ -25,7 +25,7 @@
 Summary: DSR tools
 Name: %{pkg_name}
 Version: %{pkg_version}
-Release: %{pkg_release}%{?build_number:.%{build_number}}%{?dist}
+Release: %{pkg_release}%{?build_id:.%{build_id}}%{?dist}
 License: GPLv2
 Group: System Environment/System
 %if 0%{?url:1}
