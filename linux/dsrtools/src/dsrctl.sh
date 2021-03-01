@@ -192,6 +192,8 @@ Usage: $ScriptName [-d <configdir>] [-f <configfile>] [-ahnvx] <action>
        -f file  Read a single DSR config from this file.
                 The -d option is ignored if -f is used.
        -h       Print a usage statement and exit.
+       -i       Insert the rule to the top of iptables,
+                instead of appending.
        -n       Don't actually perform the operations.  This option
                 is useful with the verbose option.
        -v       Be verbose.  More -v options get more verbose output.
@@ -1917,6 +1919,7 @@ function Iptables_start
 
 	typeset af dscp key pgm rv=0 vipnumeric
 	typeset -a cmd
+	typeset pos
 
 	key=$(makekey "$normvip" "$normdscp")
 	[[ ${Iptables[$key].state} == stopped ]] || return 0
@@ -1927,8 +1930,14 @@ function Iptables_start
 	vipnumeric=${Iptables[$key].vipnumeric}
 	dscp=${Iptables[$key].dscp}
 
+	if [[ $InsertMode == yes ]]; then
+	    pos="-I"
+	else
+	    pos="-A"
+	fi
+
 	cmd=($pgm -t "${Table[val]}" \
-	          -A "$IptablesChain" \
+	          -$pos "$IptablesChain" \
 	          -m dscp \
 	          --dscp "$dscp" \
 	          -j DADDR \
@@ -2434,6 +2443,7 @@ exec 3>&1
 AllOpt=0
 ConfigDir=/etc/dsr.d
 ConfigFile=
+InsertMode=no
 KeepModule=no
 NoFail=0
 NoRun=no
@@ -2445,6 +2455,8 @@ while getopts -a "$ScriptName" ad:f:hknvx OPTION; do
 	d)      ConfigDir=$OPTARG
 		;;
 	f)      ConfigFile=$OPTARG
+		;;
+	i)      InsertMode=yes
 		;;
 	n)      NoRun=yes
 		;;
