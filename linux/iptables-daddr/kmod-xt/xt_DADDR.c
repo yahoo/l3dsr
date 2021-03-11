@@ -38,9 +38,9 @@ MODULE_ALIAS("ip6t_DADDR");
 #define XT_DADDR_NEED_INET_PROTO_CSUM_REPLACE16
 #endif
 
-static char *table = "mangle";
+static char *table = "raw";
 module_param(table, charp, S_IRUGO);
-MODULE_PARM_DESC(table, "type of table (default: mangle)");
+MODULE_PARM_DESC(table, "type of table (default: raw)");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
 #define xt_action_param xt_target_param
