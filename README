@@ -34,7 +34,7 @@ On the server, L3DSR is currently supported by:
 
 L3DSR was developed at Yahoo! Inc.  If you have questions or comments,
 please contact:
-   Jan Schaumann <jans@yahoo-inc.com> (overall design),
+   Jan Schaumann <jans@verizonmedia.com> (overall design),
    Carl Stanley <carl_stanley@yahoo.com> (LBs),
-   Quentin Barnes <qbarnes@yahoo-inc.com> (iptables-daddr), or
-   Wayne Badger <badger@yahoo-inc.com> (yvipagent).
+   Quentin Barnes <qbarnes@gmail.com> (iptables-daddr), or
+   Wayne Badger <badger@verizonmedia.com> (dsrtools/yvipagent).
