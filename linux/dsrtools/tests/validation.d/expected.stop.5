@@ -5,6 +5,8 @@ Usage: dsrctl [-d <configdir>] [-f <configfile>] [-ahnvx] <action>
        -f file  Read a single DSR config from this file.
                 The -d option is ignored if -f is used.
        -h       Print a usage statement and exit.
+       -i       Insert rules at the top of the iptables chain instead
+                of appending.  The default is to append the rules.
        -k       Keep the xt_DADDR module loaded when stopping DSRs.
                 The xt_DADDR module is removed by default when running
                 the stop action.

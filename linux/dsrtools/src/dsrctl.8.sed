@@ -150,6 +150,13 @@ Use the given \fIfile\fP as the sole configuration file.
 Print the usage statement for \fBdsrctl\fP.
 
 .TP
+\fB\-i\fR
+Insert rules at the top of the iptables chain instead of appending.  The
+default is to append the rules.  The insert-or-append choice applies to all
+rules that \fBdsrctl\fP adds to the iptables chain.  This option is ignored
+for all actions except \fBstart\fP and \fBrestart\fP.
+
+.TP
 \fB\-k\fR
 Keep the \fBxt_DADDR\fP module when stopping DSRs.  The \fBxt_DADDR\fP module
 is removed by default when running the \fBstop\fP action, but this option

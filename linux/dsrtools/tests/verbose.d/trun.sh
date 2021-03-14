@@ -18,6 +18,7 @@ Tmplts=( expected.start.1
          expected.stop.3
          expected.status.4
          expected.status.5
+         expected.start.6
        )
 
 expand_templates Tmplts "$Table"
@@ -29,6 +30,12 @@ typeset rv=0
 (( rv != 0 )) || docmd start  "-v"                n:20  1 || rv=1
 (( rv != 0 )) || docmd status "-v"                n:20  1 || rv=1
 (( rv != 0 )) || docmd stop   "-v -s1:0.25"       n:20  1 || rv=1
+
+# Test the -i option by verifying that the -I iptables option is
+# used when adding iptables rules.
+(( rv != 0 )) || docmd start  "-vi"               n:20  6 || rv=1
+(( rv != 0 )) || docmd status "-vi"               n:20  1 || rv=1
+(( rv != 0 )) || docmd stop   "-vi -s1:0.25"      n:20  1 || rv=1
 
 # Test for double -vv.
 (( rv != 0 )) || docmd start  "-vv"               n:20  2 || rv=1

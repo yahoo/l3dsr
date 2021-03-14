@@ -192,6 +192,8 @@ Usage: $ScriptName [-d <configdir>] [-f <configfile>] [-ahnvx] <action>
        -f file  Read a single DSR config from this file.
                 The -d option is ignored if -f is used.
        -h       Print a usage statement and exit.
+       -i       Insert rules at the top of the iptables chain instead
+                of appending.  The default is to append the rules.
        -k       Keep the xt_DADDR module loaded when stopping DSRs.
                 The xt_DADDR module is removed by default when running
                 the stop action.
@@ -1943,7 +1945,7 @@ function Iptables_start
 	typeset normvip=$1
 	typeset normdscp=$2
 
-	typeset af dscp key pgm rv=0 vipnumeric
+	typeset af dscp key loc pgm rv=0 vipnumeric
 	typeset -a cmd
 
 	key=$(makekey "$normvip" "$normdscp")
@@ -1955,8 +1957,10 @@ function Iptables_start
 	vipnumeric=${Iptables[$key].vipnumeric}
 	dscp=${Iptables[$key].dscp}
 
+	[[ $InsertMode == yes ]] && loc=I || loc=A
+
 	cmd=($pgm -t "${Table[val]}" \
-	          -A "$IptablesChain" \
+	          -$loc "$IptablesChain" \
 	          -m dscp \
 	          --dscp "$dscp" \
 	          -j DADDR \
@@ -2494,19 +2498,22 @@ exec 3>&1
 AllOpt=0
 ConfigDir=/etc/dsr.d
 ConfigFile=
+InsertMode=no
 KeepModule=no
 NoFail=0
 NoRun=no
 SleepInit=0.0
 SleepLoop=0.25
 VerboseLevel=0
-while getopts -a "$ScriptName" ad:f:hkns:vx OPTION; do
+while getopts -a "$ScriptName" ad:f:hikns:vx OPTION; do
     case $OPTION in
 	a)      AllOpt=1
 		;;
 	d)      ConfigDir=$OPTARG
 		;;
 	f)      ConfigFile=$OPTARG
+		;;
+	i)      InsertMode=yes
 		;;
 	k)      KeepModule=yes
 		;;
