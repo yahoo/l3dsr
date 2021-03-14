@@ -245,6 +245,11 @@ srcfiles += \
 	tests/validation.d/expected.status.9 \
 	tests/validation.d/expected.stop.1 \
 	tests/validation.d/expected.stop.5 \
+	tests/validation.d/expected.stop.10 \
+	tests/validation.d/expected.stop.11 \
+	tests/validation.d/expected.stop.12 \
+	tests/validation.d/expected.stop.13 \
+	tests/validation.d/expected.stop.14 \
 	tests/validation.d/expected.stop.9 \
 	tests/validation.d/tinfo \
 	tests/validation.d/trun.sh \
@@ -253,6 +258,7 @@ srcfiles += \
 	tests/verbose.d/expected.start.1.template \
 	tests/verbose.d/expected.start.2.template \
 	tests/verbose.d/expected.start.3.template \
+	tests/verbose.d/expected.start.6.template \
 	tests/verbose.d/expected.status.1.template \
 	tests/verbose.d/expected.status.2.template \
 	tests/verbose.d/expected.status.3.template \

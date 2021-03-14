@@ -16,10 +16,10 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.3.0
+  %define pkg_version 1.4.0
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20191121
+  %define pkg_release 20210314
 %endif
 
 Summary: DSR tools
@@ -125,6 +125,11 @@ displaying status information.
 
 
 %changelog
+* Sun Mar 14 2021 Wayne Badger <badger@verizonmedia.com> 1.4.0-20210314
+- Update email addresses in README.
+- Fix RHEL8 modprobe -r test failure.
+- Add -i option based on code by Argo Wang.
+
 * Thu Nov 21 2019 Wayne Badger <badger@verizonmedia.com> 1.3.0-20191121
 - Add support for the table from /sys/module/xt_DADDR/parameters/table.
 - Remove the kernel module when stopping DSRs.
