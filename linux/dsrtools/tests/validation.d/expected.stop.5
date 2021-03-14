@@ -5,8 +5,17 @@ Usage: dsrctl [-d <configdir>] [-f <configfile>] [-ahnvx] <action>
        -f file  Read a single DSR config from this file.
                 The -d option is ignored if -f is used.
        -h       Print a usage statement and exit.
+       -k       Keep the xt_DADDR module loaded when stopping DSRs.
+                The xt_DADDR module is removed by default when running
+                the stop action.
        -n       Don't actually perform the operations.  This option
                 is useful with the verbose option.
+       -s v:v   Set the sleep values for removing the xt_DADDR module.
+                The first value is the number of seconds to wait before
+                attempting the first modprobe.  The second value is
+                the number of seconds to wait before all subsequent
+                attempts to remove the module.  Floating point values
+                are allowed.
        -v       Be verbose.  More -v options get more verbose output.
        -x       Don't print the header.
        <action> Run the requested action.  Supported actions are:

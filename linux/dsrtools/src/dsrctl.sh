@@ -192,8 +192,17 @@ Usage: $ScriptName [-d <configdir>] [-f <configfile>] [-ahnvx] <action>
        -f file  Read a single DSR config from this file.
                 The -d option is ignored if -f is used.
        -h       Print a usage statement and exit.
+       -k       Keep the xt_DADDR module loaded when stopping DSRs.
+                The xt_DADDR module is removed by default when running
+                the stop action.
        -n       Don't actually perform the operations.  This option
                 is useful with the verbose option.
+       -s v:v   Set the sleep values for removing the xt_DADDR module.
+                The first value is the number of seconds to wait before
+                attempting the first modprobe.  The second value is
+                the number of seconds to wait before all subsequent
+                attempts to remove the module.  Floating point values
+                are allowed.
        -v       Be verbose.  More -v options get more verbose output.
        -x       Don't print the header.
        <action> Run the requested action.  Supported actions are:
@@ -459,6 +468,25 @@ function isnumeric
 	return 1
 }
 
+# Check whether the argument is a decimal fraction.  The following values are
+# examples of what is accepted.
+#     0
+#     123
+#     .23
+#     0.23
+#     123.23
+function is_dec_fraction
+{
+	case $1 in
+	  0)                        return 0;;  # decimal
+	  +([1-9])*([\d]))          return 0;;  # decimal
+	  \.+([\d]))                return 0;;  # decimal fraction
+	  0\.+([\d]))               return 0;;  # decimal fraction
+	  +([1-9])*([\d])\.+([\d])) return 0;;  # decimal fraction
+	esac
+
+	return 1
+}
 
 # Emit a single line of output based on the provided arguments
 # and appropriate configuration values.
@@ -2182,15 +2210,47 @@ function load_kmod
 }
 
 # Remove the xt_DADDR kernel module.
+#
+# We utilize a loop with a sleep because of the changes in behavior between
+# RHEL7 and RHEL8.  In RHEL7, one could remove the last iptables entry related
+# to xt_DADDR and immediately remove the the module.  In RHEL8, the module is
+# not immediately removeable and fails with this message.
+#     modprobe: FATAL: Module xt_DADDR is in use.
+#
+# The module removal eventually succeeds.  Without any intervening sleeps, it
+# takes up to 20 "modprobe -r" attempts to finally succeed on RHEL8.
+#
+# In tests, the "modprobe -r" can take up to 41ms after the return of the last
+# iptables rule removal before succeeding.
+#
+# SleepInit and SleepLoop were added solely to let the verbose.d tests pass.
+# By increasing the sleep values, the number of "modprobe -r" calls is limited
+# to one and the output matches for both RHEL7 and RHEL8.
+#
+# The default values for SleepInit and SleepLoop are chosen so that there is
+# no delay before the first attempt to remove the module and subsequent delays
+# are short enough to not overly harm the script's performance, but always
+# result in the successful removal of the xt_DADDR module.
+#
+# Yes, this is ugly.  I hate delays.
 function remove_kmod
 {
-	typeset out rv
+	typeset i out rv slp
 
 	[[ $KeepModule == no ]] || return 0
 
-	out=$(run modprobe -r $Kmod 2>&1)
-	rv=$?
-	(( rv == 0 )) || vprt3 "$out"
+	# The default value for i and the sleep values should result in a
+	# maximum delay of 2 seconds.
+	for ((i=0; i<8; i++)); do
+		(( i == 0 )) && slp=$SleepInit || slp=$SleepLoop
+		(( slp <= 0.0 )) || sleep $slp
+		out=$(run modprobe -r $Kmod 2>&1)
+		rv=$?
+		(( rv )) || break
+	done
+
+	# Only emit one failure line.
+	(( rv )) || vprt3 "$out"
 
 	return $rv
 }
@@ -2437,8 +2497,10 @@ ConfigFile=
 KeepModule=no
 NoFail=0
 NoRun=no
+SleepInit=0.0
+SleepLoop=0.25
 VerboseLevel=0
-while getopts -a "$ScriptName" ad:f:hknvx OPTION; do
+while getopts -a "$ScriptName" ad:f:hkns:vx OPTION; do
     case $OPTION in
 	a)      AllOpt=1
 		;;
@@ -2446,9 +2508,11 @@ while getopts -a "$ScriptName" ad:f:hknvx OPTION; do
 		;;
 	f)      ConfigFile=$OPTARG
 		;;
+	k)      KeepModule=yes
+		;;
 	n)      NoRun=yes
 		;;
-	k)      KeepModule=yes
+	s)      s_opt=$OPTARG
 		;;
 	v)      (( ++VerboseLevel ))
 		;;
@@ -2466,6 +2530,21 @@ done
 shift $(( OPTIND - 1 ))
 
 (( $# >= 1 )) || { print -u2 -- "Missing action argument."; exit 1; }
+
+if [[ ${s_opt+_} ]]; then
+	if [[ $s_opt != +([[:digit:].]):+([[:digit:].]) ]]; then
+		print -u2 -- "Invalid sleep argument ($s_opt)."
+		exit 1
+	fi
+
+	SleepInit=${.sh.match[1]}
+	SleepLoop=${.sh.match[2]}
+
+	if ! is_dec_fraction "$SleepInit" || ! is_dec_fraction "$SleepLoop"; then
+		print -u2 -- "Invalid sleep argument ($s_opt)."
+		exit 1
+	fi
+fi
 
 Action=$1
 shift

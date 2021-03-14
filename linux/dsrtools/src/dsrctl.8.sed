@@ -162,6 +162,20 @@ Don't actually perform the operations.  This option is usually paired with
 \fB-v\fP in order to see what commands would be run.
 
 .TP
+\fB\-s\fR \fIinitval:loopval\fP
+Set the sleep values for removing the xt_DADDR module.  The first value
+(\fIinitval\fP) is the number of seconds to wait before attempting the first
+modprobe.  The second value (\fIloopval\fP) is the number of seconds to wait
+before all subsequent attempts to remove the module.  Integer and decimal
+fractions are allowed.  Both values must be provided and separated by a colon
+with no surrounding spaces.
+
+The default values (\fI0:0.25\fP) are chosen so that the xt_DADDR module is
+always removed on all RHEL7 and later releases as long as all iptables rules
+related to the xt_DADDR module have been removed.  The maximum default delay
+is 2 seconds.
+
+.TP
 \fB\-v\fR
 Print more verbose information.  Additional \fB-v\fP options increase the
 verbosity.

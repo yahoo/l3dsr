@@ -20,6 +20,11 @@ typeset rv=0
 (( rv != 0 )) || docmd status  "-b abc"   n:21               3 || rv=1
 (( rv != 0 )) || docmd boomer  ""         n:21               4 || rv=1
 (( rv != 0 )) || docmd stop    "-h"       n:21               5 || rv=1
+(( rv != 0 )) || docmd stop    "-sfoo"    n:21              10 || rv=1
+(( rv != 0 )) || docmd stop    "-s0:foo"  n:21              11 || rv=1
+(( rv != 0 )) || docmd stop    "-s.:."    n:21              12 || rv=1
+(( rv != 0 )) || docmd stop    "-sfoo:.4" n:21              13 || rv=1
+(( rv != 0 )) || docmd stop    "-s.4:bar" n:21              14 || rv=1
 
 # Test for nonexistent FQDN.
 (( rv != 0 )) || docmd status  ""         n:22               6 || rv=1
