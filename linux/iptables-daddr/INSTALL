@@ -1,6 +1,8 @@
 These packages supply an Iptables plugin and kernel module and that
 allow rewriting of the destination IP address for IPv4 and IPv6.
 
+Consult the 'Requires' and 'BuildRequires' entries in the "rpm/iptables-daddr.spec" regarding the prerequisites. On RHEL systems, you may find useful to yum groupinstall "Development Tools"` (and "RPM Development Tools" on rhel8).
+
 To build both components of the software, type:
 
     $ make

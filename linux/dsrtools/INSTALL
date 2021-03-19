@@ -1,10 +1,11 @@
 These packages supply the dsrtools software that provides control
 of L2DSR and L3DSR VIPs.
 
+Consult the 'Requires' and 'BuildRequires' entries in the "rpm/dsrtools.spec" regarding the prerequisites. On RHEL systems, you may find useful to yum groupinstall "Development Tools" (and "RPM Development Tools" on rhel8).
+
 To build the software, type:
 
     $ make
-
 
 For RPM-based distros, to build the source package, type:
 
