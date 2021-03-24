@@ -61,6 +61,9 @@ BuildRequires: module-init-tools
     %else
 BuildRequires: kmod
     %endif
+    %if 0%{?rhel} > 7
+BuildRequires: kernel-rpm-macros
+    %endif
 BuildRequires: redhat-rpm-config >= 9.0.3-42
 BuildRequires: kernel-devel
   %endif

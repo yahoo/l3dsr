@@ -6,6 +6,7 @@
 #   DIST			%{dist} for rpmbuild or '""' for unsetting it
 #   MOCK_SRPM_RESULTDIR		--resultdir for building SRPM
 #   MOCK_RPM_RESULTDIR		--resultdir for building RPMs
+#   EXTRA_MOCK_PACKAGES   extra mock packages for --install
 #   EXTRA_MOCK_SRPM_ARGS	extra mock arguments when building SRPM
 #   EXTRA_MOCK_RPM_ARGS		extra mock arguments when building RPMs
 #
@@ -44,7 +45,7 @@ sourcesfiles = $(addprefix $(sources)/,$(extrasrcfiles))
 
 kernel-devel          = kernel-devel$(if $(KVERREL),-$(KVERREL))
 kernel-abi-whitelists = kernel-abi-whitelists$(if $(KVERREL),-$(KVERREL))
-install_pkgs          = $(kernel-devel) $(kernel-abi-whitelists)
+install_pkgs          = $(kernel-devel) $(kernel-abi-whitelists) $(EXTRA_MOCK_PACKAGES)
 
 rpmpkgs  := $(shell \
 	$(MOCK) $(mock_srpm_args) --quiet \
