@@ -8,6 +8,7 @@
 #   MOCK_RPM_RESULTDIR		--resultdir for building RPMs
 #   EXTRA_MOCK_SRPM_ARGS	extra mock arguments when building SRPM
 #   EXTRA_MOCK_RPM_ARGS		extra mock arguments when building RPMs
+#   EXTRA_MOCK_INSTALL_PKGS	extra packages to be installed in mock's root
 #
 # Also see rpm/rpmdefs.mk for rarely set optional macros.
 #
@@ -44,7 +45,8 @@ sourcesfiles = $(addprefix $(sources)/,$(extrasrcfiles))
 
 kernel-devel          = kernel-devel$(if $(KVERREL),-$(KVERREL))
 kernel-abi-whitelists = kernel-abi-whitelists$(if $(KVERREL),-$(KVERREL))
-install_pkgs          = $(kernel-devel) $(kernel-abi-whitelists)
+install_pkgs          = $(kernel-devel) $(kernel-abi-whitelists) \
+			$(EXTRA_MOCK_INSTALL_PKGS)
 
 rpmpkgs  := $(shell \
 	$(MOCK) $(mock_srpm_args) --quiet \

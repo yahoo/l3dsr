@@ -59,10 +59,13 @@ Requires: %{name}-kmod = %{version}-%{release}
     %if 0%{?rhel} < 7
 BuildRequires: module-init-tools
     %else
-BuildRequires: kmod
+BuildRequires: elfutils-libelf-devel kmod
+    %endif
+    %if 0%{?rhel} >= 8
+BuildRequires: kernel-rpm-macros
     %endif
 BuildRequires: redhat-rpm-config >= 9.0.3-42
-BuildRequires: kernel-devel
+BuildRequires: kernel-devel kernel-abi-whitelists
   %endif
 %endif
 
@@ -72,10 +75,36 @@ Source0: %{name}-%{version}.tar.xz
 Source1: %{name}.files
 
 %if %{with_kmod}
-  # Note: Can't indent kernel_module_package macro.
-  # Build only for standard kernel variant(s); for debug packages,
-  # append "debug" after "default" (separated by a space).
-%kernel_module_package -f %{SOURCE1} default
+  # Starting with RHEL 8, providing the new kernel-rpm-macros
+  # package build requirement in a simple BuildRequires statement
+  # doesn't work causing a Catch-22 problem.  Referencing an
+  # undefined kernel_module_package macro stops the build due to an
+  # unparsable .spec file.  But suppressing the macro's expansion
+  # when undefined to negate the failure may prevent the .spec file
+  # determining its full build requirements.  So while the expansion
+  # of the macro is suppressed, we would still need to ensure its
+  # complete BuildRequires list is provided without the macro.
+  #
+  # Providing the BuildRequires list outside the macro and
+  # suppressing the macro's expansion when undefined works
+  # because only the BuildRequires list would be needed during
+  # the early stages when prepping the build environment (e.g.
+  # when running yum-builddep).  Later, once the build environment
+  # has kernel-rpm-macros installed, along with the other required
+  # dependent packages, the .spec file will have everything it
+  # needs to build its SRPM and RPMs, including the output from the
+  # kernel_module_package macro.
+  #
+  # Depending on the OS, from the command line the kernel_module_package
+  # macro can be used to return its BuildRequires list.  To check, run:
+  #    rpm -E $'\045{kernel_module_package default}' | \
+  #        grep '^BuildRequires'
+  # If no output, the BuildRequires list will have to be determined
+  # using other methods, possibly by inspection or trial-and-error.
+  #
+  # Build only for standard kernel variant(s).  For debug packages,
+  # append "debug" after "default" (separated by a space):
+%{?kernel_module_package:%kernel_module_package -f %{SOURCE1} default}
 %endif
 
 %description
