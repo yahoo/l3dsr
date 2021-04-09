@@ -1,5 +1,13 @@
 20161014-13:52:06: ===== Iptables Table is TABLE (TABLE_CMT)
 20161014-13:52:06: ===== Loading config file 20-vip.conf
+20161014-13:52:06: ====== Lexical analysis recognizes empty/comment line (# mix of IPv4/IPv6 L2DSR/L3DSR VIPs in a file name that has spaces)
+20161014-13:52:06: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.67.68=28)
+20161014-13:52:06: ====== Lexical analysis recognizes L2DSR IPv4 (188.125.82.38)
+20161014-13:52:06: ====== Lexical analysis recognizes L3DSR IPv6 (2a00:1288:110:21b::4002=19)
+20161014-13:52:06: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.82.196=43)
+20161014-13:52:06: ====== Lexical analysis recognizes L2DSR IPv6 (2a00:1288:110:21b::4005)
+20161014-13:52:06: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.82.253=17)
+20161014-13:52:06: ====== Lexical analysis recognizes L3DSR IPv6 (2a00:1288:110:21b::4006=17)
 20161014-13:52:06: ====== Config File Start
 20161014-13:52:06: ======     Number of DSRs = 7
 20161014-13:52:06: ======         dsr4: configured init vip=188.125.67.68 dscp=28
@@ -33,21 +41,21 @@
 20161014-13:52:06: ====== Iptables End
 20161014-13:52:06: ====== Stopping DSR 2a00:1288:110:21b::4006=17
 20161014-13:52:06: +ip6tables -t TABLE -D PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=2a00:1288:110:21b::4006
-20161014-13:52:06: +ifconfig lo inet6 del 2a00:1288:110:21b::4006/128
+20161014-13:52:06: +ip addr del 2a00:1288:110:21b::4006/128 dev lo
 20161014-13:52:06: ====== Stopping DSR 188.125.82.253=17
 20161014-13:52:06: +iptables -t TABLE -D PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=188.125.82.253
-20161014-13:52:06: +ifconfig lo:4 down
+20161014-13:52:06: +ip addr del 188.125.82.253/32 dev lo label lo:4
 20161014-13:52:06: ====== Stopping DSR 2a00:1288:110:21b::4005=
-20161014-13:52:06: +ifconfig lo inet6 del 2a00:1288:110:21b::4005/128
+20161014-13:52:06: +ip addr del 2a00:1288:110:21b::4005/128 dev lo
 20161014-13:52:06: ====== Stopping DSR 188.125.82.196=43
 20161014-13:52:06: +iptables -t TABLE -D PREROUTING -m dscp --dscp 43 -j DADDR --set-daddr=188.125.82.196
-20161014-13:52:06: +ifconfig lo:3 down
+20161014-13:52:06: +ip addr del 188.125.82.196/32 dev lo label lo:3
 20161014-13:52:06: ====== Stopping DSR 2a00:1288:110:21b::4002=19
 20161014-13:52:06: +ip6tables -t TABLE -D PREROUTING -m dscp --dscp 19 -j DADDR --set-daddr=2a00:1288:110:21b::4002
-20161014-13:52:06: +ifconfig lo inet6 del 2a00:1288:110:21b::4002/128
+20161014-13:52:06: +ip addr del 2a00:1288:110:21b::4002/128 dev lo
 20161014-13:52:06: ====== Stopping DSR 188.125.82.38=
-20161014-13:52:06: +ifconfig lo:2 down
+20161014-13:52:06: +ip addr del 188.125.82.38/32 dev lo label lo:2
 20161014-13:52:06: ====== Stopping DSR 188.125.67.68=28
 20161014-13:52:06: +iptables -t TABLE -D PREROUTING -m dscp --dscp 28 -j DADDR --set-daddr=188.125.67.68
-20161014-13:52:06: +ifconfig lo:1 down
+20161014-13:52:06: +ip addr del 188.125.67.68/32 dev lo label lo:1
 20161014-13:52:06: +modprobe -r xt_DADDR

@@ -1,0 +1,44 @@
+20161014-16:44:44: ===== Iptables Table is TABLE (TABLE_CMT)
+20161014-16:44:44: ===== Loading config file 30-vip.conf
+20161014-16:44:44: ====== Lexical analysis recognizes empty/comment line (# IPv4 L3DSRs)
+20161014-16:44:44: ====== Lexical analysis recognizes empty/comment line ()
+20161014-16:44:44: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.67.1=10)
+20161014-16:44:44: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.67.2=11)
+20161014-16:44:44: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.67.3=12)
+20161014-16:44:44: ====== Config File Start
+20161014-16:44:44: ======     Number of DSRs = 3
+20161014-16:44:44: ======         dsr4: configured init vip=188.125.67.1 dscp=10
+20161014-16:44:44: ======         dsr4: configured init vip=188.125.67.2 dscp=11
+20161014-16:44:44: ======         dsr4: configured init vip=188.125.67.3 dscp=12
+20161014-16:44:44: ====== Config File End
+20161014-16:44:44: +ip -o addr show lo
+20161014-16:44:44: ====== Loopbacks Start
+20161014-16:44:44: ======     Number of loopbacks = 5
+20161014-16:44:44: ======         loopback4: configured stopped vip=188.125.67.1
+20161014-16:44:44: ======         loopback4: configured stopped vip=188.125.67.2
+20161014-16:44:44: ======         loopback4: configured stopped vip=188.125.67.3
+20161014-16:44:44: ======         loopback4: discovered started vip=188.125.66.2 1
+20161014-16:44:44: ======         loopback4: discovered started vip=188.125.66.3 2
+20161014-16:44:44: ====== Loopbacks End
+20161014-16:44:44: +iptables -L -t TABLE -n
+IPV6ONLY:20161014-16:44:44: +ip6tables -L -t TABLE -n
+20161014-16:44:44: ====== Iptables Start
+20161014-16:44:44: ======     Number of iptables rules = 5
+20161014-16:44:44: ======         iptables4: configured stopped vip=188.125.67.1 dscp=10
+20161014-16:44:44: ======         iptables4: configured stopped vip=188.125.67.2 dscp=11
+20161014-16:44:44: ======         iptables4: configured stopped vip=188.125.67.3 dscp=12
+20161014-16:44:44: ======         iptables4: discovered started vip=188.125.66.2 dscp=0x14
+20161014-16:44:44: ======         iptables4: discovered started vip=188.125.66.3 dscp=0x15
+20161014-16:44:44: ====== Iptables End
+type  state   name          ipaddr        dscp loopback iptables IPTBL_HDR src
+===== ======= ============  ============  ==== ======== ======== IPTBL_HDR_EQUALS ====
+20161014-16:44:44: ====== Checking configured DSR 188.125.67.1=10
+l3dsr stopped 188.125.67.1  188.125.67.1  10   --       --       IPTBL_VAL conf
+20161014-16:44:44: ====== Checking configured DSR 188.125.67.2=11
+l3dsr stopped 188.125.67.2  188.125.67.2  11   --       --       IPTBL_VAL conf
+20161014-16:44:44: ====== Checking configured DSR 188.125.67.3=12
+l3dsr stopped 188.125.67.3  188.125.67.3  12   --       --       IPTBL_VAL conf
+20161014-16:44:44: ====== Checking configured DSR 188.125.66.2=20
+l3dsr started 188.125.66.2  188.125.66.2  20   lo:1     up       IPTBL_VAL disc
+20161014-16:44:44: ====== Checking configured DSR 188.125.66.3=21
+l3dsr started 188.125.66.3  188.125.66.3  21   lo:2     up       IPTBL_VAL disc

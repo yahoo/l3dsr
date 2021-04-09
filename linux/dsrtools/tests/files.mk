@@ -109,6 +109,13 @@ srcfiles += \
 	tests/ip4.l3.012.d/expected.stop.1 \
 	tests/ip4.l3.012.d/tinfo \
 	tests/ip4.l3.012.d/trun.sh \
+	tests/ip4.l3.013.d/20-vip.conf \
+	tests/ip4.l3.013.d/expected.start.1 \
+	tests/ip4.l3.013.d/expected.status.1 \
+	tests/ip4.l3.013.d/expected.status.2.template \
+	tests/ip4.l3.013.d/expected.stop.1 \
+	tests/ip4.l3.013.d/tinfo \
+	tests/ip4.l3.013.d/trun.sh \
 	tests/ip4.l3.200.d/20-vip.conf \
 	tests/ip4.l3.200.d/expected.start.1 \
 	tests/ip4.l3.200.d/expected.status.1 \
@@ -228,44 +235,60 @@ srcfiles += \
 	tests/ip6.l3.500.d/expected.status.1 \
 	tests/ip6.l3.500.d/expected.stop.1 \
 	tests/ip6.l3.500.d/tinfo \
-	tests/validation.d/20-v\ i\ p.conf \
-	tests/validation.d/21-vip.conf \
-	tests/validation.d/22-vip.conf \
-	tests/validation.d/23-vip.conf \
-	tests/validation.d/expected.boomer.4 \
-	tests/validation.d/expected.start.1 \
-	tests/validation.d/expected.start.2 \
-	tests/validation.d/expected.start.6 \
-	tests/validation.d/expected.start.9 \
-	tests/validation.d/expected.status.1 \
-	tests/validation.d/expected.status.3 \
-	tests/validation.d/expected.status.6 \
-	tests/validation.d/expected.status.7 \
-	tests/validation.d/expected.status.8 \
-	tests/validation.d/expected.status.9 \
-	tests/validation.d/expected.stop.1 \
-	tests/validation.d/expected.stop.5 \
-	tests/validation.d/expected.stop.10 \
-	tests/validation.d/expected.stop.11 \
-	tests/validation.d/expected.stop.12 \
-	tests/validation.d/expected.stop.13 \
-	tests/validation.d/expected.stop.14 \
-	tests/validation.d/expected.stop.9 \
-	tests/validation.d/tinfo \
-	tests/validation.d/trun.sh \
-	tests/verbose.d/20-vip.conf \
-	tests/verbose.d/30-vip.conf \
-	tests/verbose.d/expected.start.1.template \
-	tests/verbose.d/expected.start.2.template \
-	tests/verbose.d/expected.start.3.template \
-	tests/verbose.d/expected.start.6.template \
-	tests/verbose.d/expected.status.1.template \
-	tests/verbose.d/expected.status.2.template \
-	tests/verbose.d/expected.status.3.template \
-	tests/verbose.d/expected.status.4.template \
-	tests/verbose.d/expected.status.5.template \
-	tests/verbose.d/expected.stop.1.template \
-	tests/verbose.d/expected.stop.2.template \
-	tests/verbose.d/expected.stop.3.template \
-	tests/verbose.d/tinfo \
-	tests/verbose.d/trun.sh
+	tests/ip4.validation.d/20-v\ i\ p.conf \
+	tests/ip4.validation.d/21-vip.conf \
+	tests/ip4.validation.d/22-vip.conf \
+	tests/ip4.validation.d/23-vip.conf \
+	tests/ip4.validation.d/expected.boomer.4 \
+	tests/ip4.validation.d/expected.start.1 \
+	tests/ip4.validation.d/expected.start.2 \
+	tests/ip4.validation.d/expected.start.6 \
+	tests/ip4.validation.d/expected.start.9 \
+	tests/ip4.validation.d/expected.status.1 \
+	tests/ip4.validation.d/expected.status.3 \
+	tests/ip4.validation.d/expected.status.6 \
+	tests/ip4.validation.d/expected.status.7 \
+	tests/ip4.validation.d/expected.status.8 \
+	tests/ip4.validation.d/expected.status.9 \
+	tests/ip4.validation.d/expected.stop.1 \
+	tests/ip4.validation.d/expected.stop.5 \
+	tests/ip4.validation.d/expected.stop.10 \
+	tests/ip4.validation.d/expected.stop.11 \
+	tests/ip4.validation.d/expected.stop.12 \
+	tests/ip4.validation.d/expected.stop.13 \
+	tests/ip4.validation.d/expected.stop.14 \
+	tests/ip4.validation.d/expected.stop.9 \
+	tests/ip4.validation.d/tinfo \
+	tests/ip4.validation.d/trun.sh \
+	tests/ip4.verbose.d/20-vip.conf \
+	tests/ip4.verbose.d/30-vip.conf \
+	tests/ip4.verbose.d/expected.start.1.template \
+	tests/ip4.verbose.d/expected.start.2.template \
+	tests/ip4.verbose.d/expected.start.3.template \
+	tests/ip4.verbose.d/expected.start.6.template \
+	tests/ip4.verbose.d/expected.status.1.template \
+	tests/ip4.verbose.d/expected.status.2.template \
+	tests/ip4.verbose.d/expected.status.3.template \
+	tests/ip4.verbose.d/expected.status.4.template \
+	tests/ip4.verbose.d/expected.status.5.template \
+	tests/ip4.verbose.d/expected.stop.1.template \
+	tests/ip4.verbose.d/expected.stop.2.template \
+	tests/ip4.verbose.d/expected.stop.3.template \
+	tests/ip4.verbose.d/tinfo \
+	tests/ip4.verbose.d/trun.sh \
+	tests/ip46.verbose.d/20-vip.conf \
+	tests/ip46.verbose.d/30-vip.conf \
+	tests/ip46.verbose.d/expected.start.1.template \
+	tests/ip46.verbose.d/expected.start.2.template \
+	tests/ip46.verbose.d/expected.start.3.template \
+	tests/ip46.verbose.d/expected.start.6.template \
+	tests/ip46.verbose.d/expected.status.1.template \
+	tests/ip46.verbose.d/expected.status.2.template \
+	tests/ip46.verbose.d/expected.status.3.template \
+	tests/ip46.verbose.d/expected.status.4.template \
+	tests/ip46.verbose.d/expected.status.5.template \
+	tests/ip46.verbose.d/expected.stop.1.template \
+	tests/ip46.verbose.d/expected.stop.2.template \
+	tests/ip46.verbose.d/expected.stop.3.template \
+	tests/ip46.verbose.d/tinfo \
+	tests/ip46.verbose.d/trun.sh

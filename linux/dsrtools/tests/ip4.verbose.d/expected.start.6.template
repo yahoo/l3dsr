@@ -1,0 +1,15 @@
++modprobe xt_DADDR
++ip -o addr show lo
++iptables -L -t TABLE -n
+IPV6ONLY:+ip6tables -L -t TABLE -n
++iptables -t TABLE -I PREROUTING -m dscp --dscp 28 -j DADDR --set-daddr=188.125.67.68
++ip -o addr show lo
++ip addr add 188.125.67.68/32 dev lo label lo:1
++ip -o addr show lo
++ip addr add 188.125.82.38/32 dev lo label lo:2
++iptables -t TABLE -I PREROUTING -m dscp --dscp 43 -j DADDR --set-daddr=188.125.82.196
++ip -o addr show lo
++ip addr add 188.125.82.196/32 dev lo label lo:3
++iptables -t TABLE -I PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=188.125.82.253
++ip -o addr show lo
++ip addr add 188.125.82.253/32 dev lo label lo:4

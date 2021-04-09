@@ -1,0 +1,40 @@
+20161014-13:51:31: ===== Iptables Table is TABLE (TABLE_CMT)
+20161014-13:51:31: ===== Loading config file 20-vip.conf
+20161014-13:51:31: ====== Lexical analysis recognizes empty/comment line (# Mix of IPv4 L2DSR/L3DSR VIPs)
+20161014-13:51:31: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.67.68=28)
+20161014-13:51:31: ====== Lexical analysis recognizes L2DSR IPv4 (188.125.82.38)
+20161014-13:51:31: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.82.196=43)
+20161014-13:51:31: ====== Lexical analysis recognizes L3DSR IPv4 (188.125.82.253=17)
+20161014-13:51:31: ====== Config File Start
+20161014-13:51:31: ======     Number of DSRs = 4
+20161014-13:51:31: ======         dsr4: configured init vip=188.125.67.68 dscp=28
+20161014-13:51:31: ======         dsr4: configured init vip=188.125.82.38 dscp=
+20161014-13:51:31: ======         dsr4: configured init vip=188.125.82.196 dscp=43
+20161014-13:51:31: ======         dsr4: configured init vip=188.125.82.253 dscp=17
+20161014-13:51:31: ====== Config File End
+20161014-13:51:31: +ip -o addr show lo
+20161014-13:51:31: ====== Loopbacks Start
+20161014-13:51:31: ======     Number of loopbacks = 4
+20161014-13:51:31: ======         loopback4: configured started vip=188.125.67.68 1
+20161014-13:51:31: ======         loopback4: configured started vip=188.125.82.38 2
+20161014-13:51:31: ======         loopback4: configured started vip=188.125.82.196 3
+20161014-13:51:31: ======         loopback4: configured started vip=188.125.82.253 4
+20161014-13:51:31: ====== Loopbacks End
+20161014-13:51:31: +iptables -L -t TABLE -n
+IPV6ONLY:20161014-13:51:31: +ip6tables -L -t TABLE -n
+20161014-13:51:31: ====== Iptables Start
+20161014-13:51:31: ======     Number of iptables rules = 3
+20161014-13:51:31: ======         iptables4: configured started vip=188.125.67.68 dscp=28
+20161014-13:51:31: ======         iptables4: configured started vip=188.125.82.196 dscp=43
+20161014-13:51:31: ======         iptables4: configured started vip=188.125.82.253 dscp=17
+20161014-13:51:31: ====== Iptables End
+type  state   name            ipaddr          dscp loopback iptables
+===== ======= ==============  ==============  ==== ======== ========
+20161014-13:51:31: ====== Checking configured DSR 188.125.67.68=28
+l3dsr started 188.125.67.68   188.125.67.68   28   lo:1     up
+20161014-13:51:31: ====== Checking configured DSR 188.125.82.38=
+l2dsr started 188.125.82.38   188.125.82.38   --   lo:2     --
+20161014-13:51:31: ====== Checking configured DSR 188.125.82.196=43
+l3dsr started 188.125.82.196  188.125.82.196  43   lo:3     up
+20161014-13:51:31: ====== Checking configured DSR 188.125.82.253=17
+l3dsr started 188.125.82.253  188.125.82.253  17   lo:4     up

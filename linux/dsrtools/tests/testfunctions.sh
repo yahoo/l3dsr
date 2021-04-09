@@ -15,6 +15,7 @@ function init
 	#
 	# Set up some global variables.
 	#
+	ErrIgnore=0
 	KeepTmpFiles=0
 	Replace=0
 	NoRun=0
@@ -24,12 +25,16 @@ function init
 	set -A TmpFiles
 	set -A TrunArgs
 	ModprobeConfFile="/etc/modprobe.d/~~~dsrtest.conf"
+	ip6_disabled && Ip6Disabled=1 || Ip6Disabled=0
 
 	# Define the collating sequence we're using for testing.
 	export LC_ALL=C
 
-	while getopts krt:v OPTION; do
+	while getopts ikrt:v OPTION; do
 		case $OPTION in
+		  i)	ErrIgnore=1
+			TrunArgs+=( -i )
+		        ;;
 		  k)	KeepTmpFiles=1
 			TrunArgs+=( -k )
 			;;
@@ -123,11 +128,45 @@ function run
 	vrun1 "$@"
 }
 
+# Check if IPv6 has been disabled.
+#
+# Return 0 if IPv6 is disabled or an error was detected.
+# Return 1 if IPv6 is enabled.
+#
+# Note that RHEL7 behaves differently from RHEL8 when calling ip6tables if
+# IPv6 is disabled on the kernel command line (ipv6.disable=1).
+#     On RHEL8, ip6tables returns information even if IPv6 is disabled.
+#     On RHEL7, ip6tables just fails with the following error message.
+#         ip6tables v1.4.21: can't initialize ip6tables table `filter': \
+#                            Address family not supported by protocol
+#         Perhaps ip6tables or your kernel needs to be upgraded.
+#     This difference causes dsrctl to not even try to call ip6tables if IPv6
+#     is disabled, not even to get status.
+function ip6_disabled
+{
+	typeset sysmodfile=/sys/module/ipv6/parameters/disable
+	typeset procfile=/proc/sys/net/ipv6/conf/all/disable_ipv6
+
+	# Both files must exist or IPv6 is disabled.
+	[[ -e $sysmodfile ]] && [[ -e $procfile ]] || return 0
+
+	# If both file values are 0, IPv6 is enabled.
+	(( $(<$sysmodfile) )) || (( $(<$procfile) )) || return 1
+
+	return 0
+}
+
 function RunTest
 {
 	typeset rv=0
 
 	init "$@"
+
+	# If IPv6 is disabled and the test is an IPv6 test, then skip it.
+	if ip6_disabled && [[ $Tname == @(ip46+(?)|ip6+(?)) ]]; then
+		print -- "===== NOIPV6: $(date +'%Y-%m-%d %T'): $Tname $TDESC"
+		return 0
+	fi
 
 	#
 	# Check for an executable called $Trun in the directory and run it.  If
@@ -136,8 +175,6 @@ function RunTest
 	#
 	# If $Trun exists, then it must return 0 for success and nonzero for failure.
 	#
-
-
 	if [[ ! -x $Trun ]]; then
 		unload_kmod
 		load_kmod
@@ -226,9 +263,9 @@ function RunDefaultTest
 	# Clear up anything that is running.
 	dsrcleanup
 
-	(( rv != 0 )) || docmd start  ""   n:20  1 || rv=1
-	(( rv != 0 )) || docmd status ""   n:20  1 || rv=1
-	(( rv != 0 )) || docmd stop   ""   n:20  1 || rv=1
+	(( rv && ! ErrIgnore )) || docmd start  ""   n:20  1 || rv=1
+	(( rv && ! ErrIgnore )) || docmd status ""   n:20  1 || rv=1
+	(( rv && ! ErrIgnore )) || docmd stop   ""   n:20  1 || rv=1
 
 	# Clear up anything that is running.
 	dsrcleanup
@@ -470,9 +507,25 @@ function expand_templates
 	gen_column_strings "name"   "$Node"    name_hdr   name_hdr_equals   name_val   name_none
 	gen_column_strings "ipaddr" "$IpAddr"  ipaddr_hdr ipaddr_hdr_equals ipaddr_val ipaddr_none
 
+	if ip6_disabled; then
+		ipv6sed1="/^IPV6ONLY:/d"
+		ipv6sed2="s/LOOPBACK/--/"
+		ipv6sed3="s/IPTSTATE/--/"
+		ipv6sed4="s/STATE/stopped/"
+	else
+		ipv6sed1="s/^IPV6ONLY://"
+		ipv6sed2="s/LOOPBACK/lo/"
+		ipv6sed3="s/IPTSTATE/up/"
+		ipv6sed4="s/STATE/started/"
+	fi
+
 	for f in "${tmplts[@]}"; do
 		TmpFiles+=( "$f.$table" )
-		sed -e "s;TABLE_CMT;$table_cmt;" \
+		sed -e "$ipv6sed1" \
+		    -e "$ipv6sed2" \
+		    -e "$ipv6sed3" \
+		    -e "$ipv6sed4" \
+		    -e "s;TABLE_CMT;$table_cmt;" \
 		    -e "s/TABLE/$table/" \
 		    -e "s/IPTBL_HDR_EQUALS/$iptbl_hdr_equals/" \
 		    -e "s/IPTBL_HDR/$iptbl_hdr/" \

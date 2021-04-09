@@ -48,6 +48,10 @@ qualified domain name is provided, then it defaults to its IPv4 address
 even if an IPv6 address exists for the FQDN.  IPv6 addresses may only
 be specified as numeric addresses.
 .PP
+\fBdsrctl\fP properly parses IPv6 VIPs when IPv6 is disabled, but never
+attempts to start or stop them.  A \fIstatus\fP request displays IPv6 VIPs
+specified in a \fI.conf\fP file as stopped.
+.PP
 \fBdsrctl\fP operates successfully even if there are other iptables rules or
 loopback aliases in use.  \fBdsrctl\fP keeps track of which iptables rules and
 loopback aliases are configured on behalf of the DSR configuration and only

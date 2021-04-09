@@ -2,5 +2,8 @@
 
 . ../testfunctions.sh
 
-RunTest "$@"
-exit $?
+rv=0
+RunTest "$@" || rv=$?
+(( ErrIgnore == 0 )) || rv=0
+
+exit $rv

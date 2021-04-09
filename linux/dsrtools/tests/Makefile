@@ -12,6 +12,8 @@ DSRCTL       ?= ../../src/dsrctl
 VERBOSEARG    = $(if $(V),-v)
 REPLACEARG    = $(if $(REPLACE),-r)
 KEEPARG       = $(if $(KEEP),-k)
+ERRIGNARG     = $(if $(ERRIGN),-i)
+ALLARGS       = $(strip $(VERBOSEARG) $(REPLACEARG) $(KEEPARG) $(ERRIGNARG))
 
 
 # Determine if the xt_DADDR.ko supports the use of any table.
@@ -37,10 +39,10 @@ rootcheck:
 
 
 mangle-%:
-	cd '$*' && DSRCTL='$(DSRCTL)' Tname='$*' ../runtest -t mangle $(VERBOSEARG) $(REPLACEARG) $(KEEPARG)
+	cd '$*' && DSRCTL='$(DSRCTL)' Tname='$*' ../runtest -t mangle $(ALLARGS)
 
 raw-%:
-	cd '$*' && DSRCTL='$(DSRCTL)' Tname='$*' ../runtest -t raw $(VERBOSEARG) $(REPLACEARG) $(KEEPARG)
+	cd '$*' && DSRCTL='$(DSRCTL)' Tname='$*' ../runtest -t raw $(ALLARGS)
 
 clean_targets = runtest $(alltrun)
 clobber_targets = $(clean_targets)

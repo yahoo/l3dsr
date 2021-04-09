@@ -9,6 +9,9 @@
     %if "%{dist}" == ".el7"
       %define rhel_version 700
     %endif
+    %if "%{dist}" == ".el8"
+      %define rhel_version 800
+    %endif
   %endif
 %endif
 
@@ -16,10 +19,10 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.4.0
+  %define pkg_version 1.5.0
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20210314
+  %define pkg_release 20210408
 %endif
 
 Summary: DSR tools
@@ -125,6 +128,11 @@ displaying status information.
 
 
 %changelog
+* Thu Apr 8 2021 Wayne Badger <badger@verizonmedia.com> 1.5.0-20210408
+- Add ERRIGN make option for tests.
+- Replace ifconfig calls with ip calls.
+- Fix dsrctl when IPv6 is disabled.
+
 * Sun Mar 14 2021 Wayne Badger <badger@verizonmedia.com> 1.4.0-20210314
 - Update email addresses in README.
 - Fix RHEL8 modprobe -r test failure.

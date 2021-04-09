@@ -19,6 +19,7 @@ IptablesChain=PREROUTING
 Kmod=xt_DADDR
 KmodLoaded=0
 NoHeader=no
+Ip6Disabled=-1
 
 # We keep different maxlens for when we print with the -a option and when we
 # just print the configured DSRs.
@@ -276,6 +277,39 @@ function check_root
 		print -u2 -- "You must be root to run this command."
 		exit 1
 	fi
+}
+
+# Check if IPv6 has been disabled.
+#
+# Return 0 if IPv6 is disabled or an error was detected.
+# Return 1 if IPv6 is enabled.
+#
+# Note that RHEL7 behaves differently from RHEL8 when calling ip6tables if
+# IPv6 is disabled on the kernel command line (ipv6.disable=1).
+#     On RHEL8, ip6tables returns information even if IPv6 is disabled.
+#     On RHEL7, ip6tables just fails with the following error message.
+#         ip6tables v1.4.21: can't initialize ip6tables table `filter': \
+#                            Address family not supported by protocol
+#         Perhaps ip6tables or your kernel needs to be upgraded.
+#     This difference causes dsrctl to not even try to call ip6tables if IPv6
+#     is disabled, not even to get status.
+function ip6_disabled
+{
+	typeset sysmodfile=/sys/module/ipv6/parameters/disable
+	typeset procfile=/proc/sys/net/ipv6/conf/all/disable_ipv6
+
+        # If we have already determined if IPv6 is disabled, just return the
+        # saved result.
+	(( Ip6Disabled < 0 )) || return $Ip6Disabled
+
+	# Both files must exist or IPv6 is disabled.
+	[[ -e $sysmodfile ]] && [[ -e $procfile ]] || { Ip6Disabled=0; return 0; }
+
+	# If both file values are 0, IPv6 is enabled.
+	(( $(<$sysmodfile) )) || (( $(<$procfile) )) || { Ip6Disabled=1; return 1; }
+
+	Ip6Disabled=0
+	return 0
 }
 
 #
@@ -1410,8 +1444,8 @@ function Lo_start
 	af=$(addraf "$normvip")
 	vip=${Lo[$normvip].vipname}
 	vipnumeric=${Lo[$normvip].vipnumeric}
-	(( af == 4 )) || cmd=(ifconfig lo inet6 add $vip/128)
-	(( af == 6 )) || cmd=(ifconfig lo:$lonum $vipnumeric netmask 255.255.255.255)
+	(( af == 4 )) || cmd=(ip addr add $vip/128 dev lo)
+	(( af == 6 )) || cmd=(ip addr add $vipnumeric/32 dev lo label lo:$lonum)
 
 	if run "${cmd[@]}"; then
 		Lo[$normvip].state=started
@@ -1446,8 +1480,9 @@ function Lo_stop
 
 	af=$(addraf "$normvip")
 	vip=${Lo[$normvip].vipname}
-	(( af == 4 )) || cmd=(ifconfig lo inet6 del $vip/128)
-	(( af == 6 )) || cmd=(ifconfig lo:${Lo[$normvip].num} down)
+	vipnumeric=${Lo[$normvip].vipnumeric}
+	(( af == 4 )) || cmd=(ip addr del $vip/128 dev lo)
+	(( af == 6 )) || cmd=(ip addr del $vipnumeric/32 dev lo label lo:${Lo[$normvip].num})
 
 	if run "${cmd[@]}"; then
 		Lo[$normvip].state=stopped
@@ -1757,6 +1792,10 @@ function Iptables_get_iptables_af_table
 	typeset pgm skip_vip_adjust=0 skipchain=1 str vip vipnumeric
 	typeset -A fldnum
 
+	# Skip getting IPv6 status if IPv6 is disabled.
+	# ip6tables just fails on RHEL7 and earlier if IPv6 is disabled.
+	(( af == 4 )) || ! ip6_disabled || return 0
+
 	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
 	cmd=($pgm -L -t "${Table[val]}" -n)
@@ -1951,6 +1990,8 @@ function Iptables_start
 	key=$(makekey "$normvip" "$normdscp")
 	[[ ${Iptables[$key].state} == stopped ]] || return 0
 
+        # Note that it's not necessary to check for ip6_disabled here because
+        # Iptables_start never gets called when IPv6 is disabled.
 	af=$(addraf "$normvip")
 	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
@@ -2006,6 +2047,8 @@ function Iptables_stop
 	vipnumeric=${Iptables[$key].vipnumeric}
 	dscp=${Iptables[$key].dscp}
 
+        # Note that it's not necessary to check for ip6_disabled here because
+        # Iptables_stop never gets called when IPv6 is disabled.
 	af=$(addraf "$normvip")
 	(( af == 4 )) && pgm=iptables || pgm=ip6tables
 
@@ -2405,6 +2448,10 @@ function startdsrs
 		# Skip DSRs that weren't read from the config files.
 		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
 
+		# Skip IPv6 DSRs if IPv6 is disabled.
+		af=$(addraf "$normvip")
+		(( af == 4 )) || ! ip6_disabled || continue
+
 		vprt2 "====== Starting DSR $vip=$normdscp"
 
 		[[ ${Dsr[$key].state} != started ]] || continue
@@ -2443,6 +2490,10 @@ function stopdsrs
 
 		# Skip DSRs that weren't read from the config files.
 		[[ ${Dsr[$key].dsrsrc} == configured ]] || continue
+
+		# Skip IPv6 DSRs if IPv6 is disabled.
+		af=$(addraf "$normvip")
+		(( af == 4 )) || ! ip6_disabled || continue
 
 		vprt2 "====== Stopping DSR $vip=${Dsr[$key].dscp}"
 

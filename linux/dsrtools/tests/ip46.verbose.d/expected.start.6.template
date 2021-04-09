@@ -4,20 +4,20 @@
 +ip6tables -L -t TABLE -n
 +iptables -t TABLE -I PREROUTING -m dscp --dscp 28 -j DADDR --set-daddr=188.125.67.68
 +ip -o addr show lo
-+ifconfig lo:1 188.125.67.68 netmask 255.255.255.255
++ip addr add 188.125.67.68/32 dev lo label lo:1
 +ip -o addr show lo
-+ifconfig lo:2 188.125.82.38 netmask 255.255.255.255
++ip addr add 188.125.82.38/32 dev lo label lo:2
 +ip6tables -t TABLE -I PREROUTING -m dscp --dscp 19 -j DADDR --set-daddr=2a00:1288:110:21b::4002
 +ip -o addr show lo
-+ifconfig lo inet6 add 2a00:1288:110:21b::4002/128
++ip addr add 2a00:1288:110:21b::4002/128 dev lo
 +iptables -t TABLE -I PREROUTING -m dscp --dscp 43 -j DADDR --set-daddr=188.125.82.196
 +ip -o addr show lo
-+ifconfig lo:3 188.125.82.196 netmask 255.255.255.255
++ip addr add 188.125.82.196/32 dev lo label lo:3
 +ip -o addr show lo
-+ifconfig lo inet6 add 2a00:1288:110:21b::4005/128
++ip addr add 2a00:1288:110:21b::4005/128 dev lo
 +iptables -t TABLE -I PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=188.125.82.253
 +ip -o addr show lo
-+ifconfig lo:4 188.125.82.253 netmask 255.255.255.255
++ip addr add 188.125.82.253/32 dev lo label lo:4
 +ip6tables -t TABLE -I PREROUTING -m dscp --dscp 17 -j DADDR --set-daddr=2a00:1288:110:21b::4006
 +ip -o addr show lo
-+ifconfig lo inet6 add 2a00:1288:110:21b::4006/128
++ip addr add 2a00:1288:110:21b::4006/128 dev lo
