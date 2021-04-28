@@ -418,9 +418,9 @@ function start_one_loopback
 	typeset -a cmd
 
 	if [[ $lonum == - ]]; then
-		cmd=( ifconfig lo inet6 add "$vip" )
+		cmd=( ip addr add "$vip/128" dev lo )
 	else
-		cmd=( ifconfig "lo:$lonum" "$vip" netmask 255.255.255.255 )
+		cmd=( ip addr add "$vip/32" dev lo label "lo:$lonum" )
 	fi
 
 	run "${cmd[@]}"

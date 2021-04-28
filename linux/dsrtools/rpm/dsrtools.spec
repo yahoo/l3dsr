@@ -19,10 +19,10 @@
   %define pkg_name dsrtools
 %endif
 %if 0%{!?pkg_version:1}
-  %define pkg_version 1.5.0
+  %define pkg_version 1.5.1
 %endif
 %if 0%{!?pkg_release:1}
-  %define pkg_release 20210408
+  %define pkg_release 20210416
 %endif
 
 Summary: DSR tools
@@ -128,6 +128,9 @@ displaying status information.
 
 
 %changelog
+* Fri Apr 16 2021 Wayne Badger <badger@verizonmedia.com> 1.5.1-20210416
+- Replace ifconfig calls with ip calls in all tests.
+
 * Thu Apr 8 2021 Wayne Badger <badger@verizonmedia.com> 1.5.0-20210408
 - Add ERRIGN make option for tests.
 - Replace ifconfig calls with ip calls.
